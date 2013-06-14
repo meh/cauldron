@@ -201,7 +201,7 @@ defmodule Cauldron.HTTP do
   defp header(line) do
     [name, value] = String.split(line, ":", global: false)
 
-    { String.rstrip(name), String.lstrip(value) }
+    { String.rstrip(name), String.strip(value) }
   end
 
   defp read_body(request, _, _, 0) do
