@@ -110,7 +110,7 @@ defmodule Cauldron do
 
     listener.monitor <- { connection, :connected }
 
-    connection.socket.process(case connection.protocol do
+    connection.socket.process!(case connection.protocol do
       "http/" <> _ ->
         Process.spawn Cauldron.HTTP, :handler, [connection, fun]
 
