@@ -46,6 +46,8 @@ defmodule Cauldron.HTTP do
       { R[id: id], _, :read, :discard } ->
         discard_body(id)
 
+        handler(writer, reader, fun, requests)
+
       { R[id: id], pid, :read, :chunk } ->
         request = D.get(requests, id)
 
@@ -54,7 +56,8 @@ defmodule Cauldron.HTTP do
         else
           # we can block here given if there's still input a new request hasn't
           # come in yet, and there's no reason to be writing while the body is
-          # being read
+          # being read (unless you're doing chunking, then you'd be reading by chunk
+          # and there's no issue anyway)
           receive do
             { R[id: ^id], :input, :end } ->
               request = state(request, no_more_input: true)
@@ -94,8 +97,8 @@ defmodule Cauldron.HTTP do
             nil
         end
 
-      { :EXIT, pid, reason } ->
-        IO.inspect reason
+      { :EXIT, _pid, _reason } ->
+        handler(writer, reader, fun, requests)
     end
   end
 
