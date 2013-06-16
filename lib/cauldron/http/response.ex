@@ -9,6 +9,12 @@ defrecord Cauldron.HTTP.Response, request: nil do
     self
   end
 
+  def headers(headers, self) when is_list(headers) do
+    self.request.handler <- { self, :headers, Cauldron.HTTP.Headers.from_list(headers) }
+
+    self
+  end
+
   def headers(headers, self) do
     self.request.handler <- { self, :headers, headers }
 

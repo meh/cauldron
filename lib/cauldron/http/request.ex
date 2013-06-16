@@ -30,15 +30,15 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   end
 
   def response(code, self) do
-    response(self).status(code)
+    response(self).status(code).headers([]).body("")
   end
 
   def response(code, body, self) do
-    response(code, self).headers(Cauldron.HTTP.Headers.new).body(body)
+    response(self).status(code).headers([]).body(body)
   end
 
   def response(code, headers, body, self) do
-    response(code, self).status(code).headers(headers).body(body)
+    response(self).status(code).headers(headers).body(body)
   end
 end
 
