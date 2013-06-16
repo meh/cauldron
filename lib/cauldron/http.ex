@@ -213,7 +213,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp headers([], socket) do
-    [header(socket.recv!)] |> headers(socket)
+    [header(String.rstrip(socket.recv!))] |> headers(socket)
   end
 
   defp headers([{ name, value } = last | rest], socket) do
