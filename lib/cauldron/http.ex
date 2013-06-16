@@ -214,7 +214,7 @@ defmodule Cauldron.HTTP do
       line ->
         [method, path, "HTTP/" <> version] = String.split(line)
 
-        { method, path, version }
+        { String.upcase(method), path, version }
     end
   end
 

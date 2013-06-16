@@ -1,7 +1,7 @@
 defmodule REST do
   def handle(method, uri, request) do
     try do
-      case String.upcase(method) do
+      case method do
         "GET" ->
           __MODULE__.get(uri, request)
 
@@ -10,7 +10,7 @@ defmodule REST do
       end
     rescue
       _ in [UndefinedFunctionError, FunctionClauseError] ->
-        missing(String.upcase(method), uri, request)
+        missing(method, uri, request)
     end
   end
 
