@@ -33,12 +33,24 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     response(self).status(code).headers([]).body("")
   end
 
+  def response(code, io, self) when is_pid(io) do
+    response(self).status(code).headers([]).stream(io)
+  end
+
   def response(code, body, self) do
     response(self).status(code).headers([]).body(body)
   end
 
+  def response(code, acc, fun, self) when is_function(fun) do
+    response(self).status(code).headers([]).stream(acc, fun)
+  end
+
   def response(code, headers, body, self) do
     response(self).status(code).headers(headers).body(body)
+  end
+
+  def response(code, headers, acc, fun, self) when is_function(fun) do
+    response(self).status(code).headers(headers).stream(acc, fun)
   end
 end
 

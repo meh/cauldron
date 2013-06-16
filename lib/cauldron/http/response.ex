@@ -21,6 +21,42 @@ defrecord Cauldron.HTTP.Response, request: nil do
     self
   end
 
+  def stream(acc, fun, self) when is_function(fun) do
+    stream(self, self.request.handler, fun, acc)
+
+    self
+  end
+
+  def stream(io, self) do
+    stream(self, self.request.handler, io, self.request.connection.listener.chunk_size)
+
+    self
+  end
+
+  defp stream(self, handler, fun, acc) when is_function(fun) do
+    case fun.(acc) do
+      :eof ->
+        handler <- { self, :chunk, nil }
+
+      { data, acc } ->
+        handler <- { self, :chunk, data }
+
+        stream(self, handler, fun, acc)
+    end
+  end
+
+  defp stream(self, handler, io, chunk_size) do
+    case IO.binread(io, chunk_size) do
+      :eof ->
+        handler <- { self, :chunk, nil }
+
+      data ->
+        handler <- { self, :chunk, data }
+
+        stream(self, handler, io, chunk_size)
+    end
+  end
+
   def body(body, self) do
     self.request.handler <- { self, :body, body }
 
