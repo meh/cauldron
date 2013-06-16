@@ -5,39 +5,45 @@ defrecord Cauldron.HTTP.Request, connection: nil,
                                  uri: nil,
                                  version: nil,
                                  headers: nil do
-  def body(self, options // [])
+  alias Cauldron.HTTP.Response, as: Response
 
-  def body(self, [chunk: true]) do
+  def recv(self) do
     self.handler <- { self, Kernel.self, :read, :chunk }
 
     receive do
-      { :read, :end } ->
-        nil
-
       { :read, chunk } ->
         chunk
     end
   end
 
-  def body(self, [discard: true]) do
-    self.handler <- { self, Kernel.self, :read, :discard }
-  end
-
-  def body(self, []) do
+  def body(self) do
     self.handler <- { self, Kernel.self, :read, :all }
 
     receive do
-      { :read, :end } ->
-        nil
-
       { :read, body } ->
         body
     end
+  end
+
+  def response(self) do
+    Response[request: self]
+  end
+
+  def response(code, self) do
+    response(self).status(code)
+  end
+
+  def response(code, body, self) do
+    response(code, self).headers(Cauldron.HTTP.Headers.new).body(body)
+  end
+
+  def response(code, headers, body, self) do
+    response(code, self).status(code).headers(headers).body(body)
   end
 end
 
 defimpl Binary.Inspect, for: Cauldron.HTTP.Request do
   def inspect(request, _opts) do
-    "#Cauldron.Request[HTTP #{request.version}]<#{request.method} #{inspect request.uri} #{inspect request.headers}>"
+    "#Cauldron.Request<#{request.method} #{request.uri} #{inspect request.headers}>"
   end
 end

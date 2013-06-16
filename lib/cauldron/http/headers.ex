@@ -1,6 +1,4 @@
 defmodule Cauldron.HTTP.Headers do
-  @behaviour Dict
-
   defrecordp :headers, list: []
 
   def new do
@@ -10,11 +8,11 @@ defmodule Cauldron.HTTP.Headers do
   # TODO: coalesce multiple instances of same header
   def from_list(list) do
     headers(list: lc { name, value } inlist list do
-      { String.downcase(name), name, value }
+      { String.downcase(name), name, iolist_to_binary(value) }
     end)
   end
 
-  def has_key?(headers(list: list), key) do
+  def contains?(headers(list: list), key) do
     List.keymember?(list, String.downcase(key), 0)
   end
 
@@ -33,73 +31,8 @@ defmodule Cauldron.HTTP.Headers do
       { String.downcase(key), key, value }))
   end
 
-  def put_new(self, key, value) do
-    if has_key?(self, key) do
-      self
-    else
-      put(self, key, value)
-    end
-  end
-
-  def update(self, key, fun) do
-    if has_key?(self, key) do
-      put(self, key, fun.(get(self, key)))
-    else
-      raise KeyError, key: key
-    end
-  end
-
-  def update(self, key, initial, fun) do
-    update(put_new(self, key, initial), key, fun)
-  end
-
-  def pop(self, key, default // nil) do
-    { get(self, key, default), delete(self, key) }
-  end
-
-  def split(self, keys) do
-    Enum.reduce keys, { empty(self), self }, fn key, { a, b } ->
-      case fetch(b, key) do
-        { key, value } ->
-          { put(a, key, value), delete(b, key) }
-
-        nil ->
-          { a, b }
-      end
-    end
-  end
-
-  def take(self, keys) do
-    Enum.reduce keys, empty(self), fn key, result ->
-      case fetch(self, key) do
-        { key, value } ->
-          put(result, key, value)
-
-        nil ->
-          result
-      end
-    end
-  end
-
   def delete(headers(list: list), key) do
     headers(list: List.keydelete(list, String.downcase(key), 0))
-  end
-
-  def drop(headers(list: list), keys) do
-    headers(list: Enum.reduce keys, list, fn key, acc ->
-      List.keydelete(acc, String.downcase(key))
-    end)
-  end
-
-  def empty(headers()) do
-    headers(list: [])
-  end
-
-  def equal?(headers(list: a), headers(list: b)) do
-    a = lc { name, _, value } inlist a, do: { name, value }
-    b = lc { name, _, value } inlist b, do: { name, value }
-
-    a == b
   end
 
   def keys(headers(list: list)) do
@@ -119,34 +52,44 @@ defmodule Cauldron.HTTP.Headers do
   end
 
   def reduce(headers(list: list), acc, fun) do
-    Enum.reduce list, acc, fn { _, key, value }, acc ->
+    Data.reduce list, acc, fn { _, key, value }, acc ->
       fun.({ key, value }, acc)
     end
   end
 
-  def fetch(headers(list: list), key) do
-    case List.keyfind(list, String.downcase(key), 0) do
-      { _, key, value } ->
-        { key, value }
+  def first(headers(list: [])) do
+    nil
+  end
 
-      nil ->
-        nil
-    end
+  def first(headers(list: [{ _, name, value } | _])) do
+    { name, value }
+  end
+
+  def next(headers(list: [])) do
+    nil
+  end
+
+  def next(headers(list: [_])) do
+    nil
+  end
+
+  def next(headers(list: [_ | tail])) do
+    headers(list: tail)
   end
 end
 
 defimpl Data.Dictionary, for: Cauldron.HTTP.Headers do
-  defdelegate contains?(self, key), to: Cauldron.HTTP.Headers, as: :has_key?
   defdelegate get(self, key), to: Cauldron.HTTP.Headers
   defdelegate get(self, key, default), to: Cauldron.HTTP.Headers
   defdelegate get!(self, key), to: Cauldron.HTTP.Headers
   defdelegate put(self, key, value), to: Cauldron.HTTP.Headers
-  defdelegate put_new(self, key, value), to: Cauldron.HTTP.Headers
-  defdelegate update(self, key, updater), to: Cauldron.HTTP.Headers
-  defdelegate update(self, key, value, updater), to: Cauldron.HTTP.Headers
   defdelegate delete(self, key), to: Cauldron.HTTP.Headers
   defdelegate keys(self), to: Cauldron.HTTP.Headers
   defdelegate values(self), to: Cauldron.HTTP.Headers
+end
+
+defimpl Data.Contains, for: Cauldron.HTTP.Headers do
+  defdelegate contains?(self, value), to: Cauldron.HTTP.Headers
 end
 
 defimpl Data.Emptyable, for: Cauldron.HTTP.Headers do
@@ -154,9 +97,18 @@ defimpl Data.Emptyable, for: Cauldron.HTTP.Headers do
     Cauldron.HTTP.Headers.size(self) == 0
   end
 
-  def clear(self) do
-    Cauldron.HTTP.Headers.empty(self)
+  def clear(_) do
+    Cauldron.HTTP.Headers.new
   end
+end
+
+defimpl Data.Sequence, for: Cauldron.HTTP.Headers do
+  defdelegate first(self), to: Cauldron.HTTP.Headers
+  defdelegate next(self), to: Cauldron.HTTP.Headers
+end
+
+defimpl Data.Reducible, for: Cauldron.HTTP.Headers do
+  defdelegate reduce(self, acc, fun), to: Cauldron.HTTP.Headers
 end
 
 defimpl Data.Counted, for: Cauldron.HTTP.Headers do
@@ -171,12 +123,6 @@ defimpl Access, for: Cauldron.HTTP.Headers do
   defdelegate access(self, key), to: Cauldron.HTTP.Headers, as: :get
 end
 
-defimpl Enumerable, for: Cauldron.HTTP.Headers do
-  defdelegate reduce(self, acc, fun), to: Cauldron.HTTP.Headers
-  defdelegate member?(self, what), to: Cauldron.HTTP.Headers
-  defdelegate count(self), to: Cauldron.HTTP.Headers
-end
-
 defimpl Binary.Chars, for: Cauldron.HTTP.Headers do
   def to_binary(headers) do
     Enum.join(lc { key, value } inlist Dict.to_list(headers) do
@@ -187,6 +133,6 @@ end
 
 defimpl Binary.Inspect, for: Cauldron.HTTP.Headers do
   def inspect(headers, opts) do
-    "#Cauldron.HTTP.Headers<" <> Kernel.inspect(Enum.to_list(headers), opts) <> ">"
+    "#Cauldron.HTTP.Headers<" <> Kernel.inspect(Data.to_list(headers), opts) <> ">"
   end
 end

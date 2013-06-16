@@ -91,10 +91,10 @@ defmodule Cauldron do
 
   defp monitor do
     receive do
-      { Connection[] = connection, :connected } ->
+      { Connection[] = _connection, :connected } ->
         nil
 
-      { Connection[] = connection, :disconnected } ->
+      { Connection[] = _connection, :disconnected } ->
         nil
     end
 

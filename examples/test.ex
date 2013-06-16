@@ -1,9 +1,9 @@
 defmodule Example do
-  def handle(method, URI.Info[path: path], req) do
-    :timer.sleep 100
+  def handle("GET", URI.Info[path: "/yawnt"], request) do
+    request.response(200, "scemo\n")
+  end
 
-    IO.puts "#{method} #{path}"
-    IO.puts to_binary(req.headers)
-    IO.puts req.body
+  def handle("GET", URI.Info[path: "/chuzz"], request) do
+    request.response(200, "idla\n")
   end
 end
