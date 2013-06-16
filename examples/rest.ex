@@ -22,6 +22,16 @@ defmodule REST do
     request.response(200, "yawnt e' #{what}\n")
   end
 
+  def post(URI.Info[path: "/yawnt"], request) do
+    case request.body do
+      "piace" ->
+        request.response(200, "dire cose sceme")
+
+      _ ->
+        request.response(200, "a me lo chiedi?")
+    end
+  end
+
   def get(URI.Info[path: "/chuzz"], request) do
     request.response(200, "chuzz idla\n")
   end
