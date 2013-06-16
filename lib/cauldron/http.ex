@@ -62,11 +62,11 @@ defmodule Cauldron.HTTP do
           # being read (unless you're doing chunking, then you'd be reading by chunk
           # and there's no issue anyway)
           receive do
-            { Req[id: ^id], :input, nil } ->
+            { ^id, :input, nil } ->
               request = state(request, no_more_input: true)
               pid <- { :read, nil }
 
-            { Req[id: ^id], :input, chunk } ->
+            { ^id, :input, chunk } ->
               pid <- { :read, chunk }
           end
         end
@@ -128,10 +128,10 @@ defmodule Cauldron.HTTP do
 
   defp discard_body(id) do
     receive do
-      { Req[id: ^id], :input, nil } ->
+      { ^id, :input, nil } ->
         nil
 
-      { Req[id: ^id], :input, _ } ->
+      { ^id, :input, _ } ->
         discard_body(id)
     end
   end
@@ -142,10 +142,10 @@ defmodule Cauldron.HTTP do
 
   defp read_rest(acc, id) do
     receive do
-      { Req[id: ^id], :input, nil } ->
+      { ^id, :input, nil } ->
         acc
 
-      { Req[id: ^id], :input, chunk } ->
+      { ^id, :input, chunk } ->
         read_rest([acc | chunk], id)
     end
   end
@@ -176,12 +176,12 @@ defmodule Cauldron.HTTP do
         handler <- request
 
         if length = headers["Content-Length"] do
-          read_body(request, request.connection.socket, request.connection.listener.chunk_size, binary_to_integer(length))
+          read_body(handler, id, request.connection.socket, request.connection.listener.chunk_size, binary_to_integer(length))
         else
           if headers["Transfer-Encoding"] == "chunked" do
-            read_body(request, request.connection.socket, request.connection.listener.chunk_size)
+            read_body(handler, id, request.connection.socket, request.connection.listener.chunk_size)
           else
-            no_body(request)
+            no_body(handler, id)
           end
         end
 
@@ -235,28 +235,28 @@ defmodule Cauldron.HTTP do
     { String.rstrip(name), String.lstrip(value) }
   end
 
-  defp read_body(request, _, _, 0) do
-    no_body(request)
+  defp read_body(handler, id, _, _, 0) do
+    no_body(handler, id)
   end
 
-  defp read_body(request, socket, chunk_size, length) when length <= chunk_size do
-    request.handler <- { request, :input, socket.recv!(length) }
+  defp read_body(handler, id, socket, chunk_size, length) when length <= chunk_size do
+    handler <- { id, :input, socket.recv!(length) }
 
-    read_body(request, socket, chunk_size, 0)
+    read_body(handler, id, socket, chunk_size, 0)
   end
 
-  defp read_body(request, socket, chunk_size, length) do
-    request.handler <- { request, :input, socket.recv!(chunk_size) }
+  defp read_body(handler, id, socket, chunk_size, length) do
+    handler <- { :input, socket.recv!(chunk_size) }
 
-    read_body(request, chunk_size, length - chunk_size)
+    read_body(handler, id, chunk_size, length - chunk_size)
   end
 
-  defp read_body(_request, _socket, _chunk_size) do
+  defp read_body(_handler, _id, _socket, _chunk_size) do
     throw :unimplemented
   end
 
-  defp no_body(request) do
-    request.handler <- { request, :input, nil }
+  defp no_body(handler, id) do
+    handler <- { id, :input, nil }
   end
 
   @doc false
