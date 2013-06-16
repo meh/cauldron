@@ -299,7 +299,7 @@ defmodule Cauldron.HTTP do
           write_headers(connection.socket, D.put(headers, "Transfer-Encoding", "chunked"))
         end
 
-        connection.socket.send("0\r\n")
+        connection.socket.send("0\r\n\r\n")
 
         writer(handler, connection, id + 1, nil)
 
@@ -308,8 +308,7 @@ defmodule Cauldron.HTTP do
           write_headers(connection.socket, D.put(headers, "Transfer-Encoding", "chunked"))
         end
 
-        connection.socket.send([:io_lib.format("~.16b", [iolist_size(chunk) |> integer_to_binary]), "\r\n"])
-        connection.socket.send(chunk)
+        write_chunk(connection.socket, chunk)
 
         writer(handler, connection, id, nil)
     end
@@ -321,5 +320,10 @@ defmodule Cauldron.HTTP do
     end
 
     socket.send! "\r\n"
+  end
+
+  defp write_chunk(socket, chunk) do
+    socket.send!([:io_lib.format("~.16b", [iolist_size(chunk)]), "\r\n",
+                  chunk, "\r\n"])
   end
 end
