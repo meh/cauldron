@@ -19,7 +19,9 @@ defmodule Cauldron.HTTP do
   alias Cauldron.HTTP.Headers, as: H
   alias Cauldron.HTTP.Request, as: Req
   alias Cauldron.HTTP.Response, as: Res
+
   alias Data.Dict, as: D
+  alias Data.Seq, as: S
 
   defrecordp :state, no_more_input: false
 
@@ -162,12 +164,12 @@ defmodule Cauldron.HTTP do
         uri     = URI.parse("#{if connection.secure?, do: "https", else: "http"}://#{host}:#{port}#{path}")
 
         request = Req[ connection: connection,
-           handler:    handler,
-           id:         id,
-           method:     method,
-           uri:        uri,
-           version:    version,
-           headers:    headers ]
+                       handler:    handler,
+                       id:         id,
+                       method:     method,
+                       uri:        uri,
+                       version:    version,
+                       headers:    headers ]
 
         connection.socket.options(packet: :raw)
 
@@ -300,7 +302,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp write_headers(socket, headers) do
-    Data.Seq.each headers, fn { name, value } ->
+    S.each headers, fn { name, value } ->
       socket.send! [name, ": ", to_binary(value), "\r\n"]
     end
 
