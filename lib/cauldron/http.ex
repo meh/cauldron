@@ -149,7 +149,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp read_rest(id) do
-    read_rest([], id) |> :lists.reverse |> iolist_to_binary
+    read_rest([], id) |> iolist_to_binary
   end
 
   defp read_rest(acc, id) do
