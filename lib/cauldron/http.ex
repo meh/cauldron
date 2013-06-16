@@ -97,23 +97,13 @@ defmodule Cauldron.HTTP do
         handler(writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :body, body } ->
-        request = D.get(requests, id)
-
-        unless state(request, :no_more_input) do
-          discard_body(id)
-        end
-
+        discard_if(D.get(requests, id), id)
         writer <- { id, :body, body }
 
         handler(writer, reader, fun, D.delete(requests, id))
 
       { Res[request: Req[id: id]], :chunk, nil } ->
-        request = D.get(requests, id)
-
-        unless state(request, :no_more_input) do
-          discard_body(id)
-        end
-
+        discard_if(D.get(requests, id), id)
         writer <- {id, :chunk, nil }
 
         handler(writer, reader, fun, D.delete(requests, id))
@@ -135,6 +125,12 @@ defmodule Cauldron.HTTP do
       # a callback process ended, that means nothing
       { :EXIT, _pid, _reason } ->
         handler(writer, reader, fun, requests)
+    end
+  end
+
+  defp discard_if(request, id) do
+    unless state(request, :no_more_input) do
+      discard_body(id)
     end
   end
 
