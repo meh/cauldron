@@ -27,7 +27,17 @@ defrecord Cauldron.HTTP.Response, request: nil do
     self
   end
 
-  def stream(io, self) do
+  def stream(path, self) when is_binary(path) do
+    unless File.exists?(path) do
+      raise File.Error, reason: :enoent, action: "open", path: path
+    end
+
+    self.request.handler <- { self, :stream, path }
+
+    self
+  end
+
+  def stream(io, self) when is_pid(io) do
     stream(self, self.request.handler, io, self.request.connection.listener.chunk_size)
 
     self

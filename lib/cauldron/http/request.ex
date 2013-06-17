@@ -29,6 +29,10 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     Response[request: self]
   end
 
+  def response(path, self) when is_binary(path) do
+    response(self).status(200).headers([]).stream(path)
+  end
+
   def response(code, self) do
     response(self).status(code).headers([]).body("")
   end
