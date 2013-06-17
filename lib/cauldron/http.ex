@@ -32,6 +32,8 @@ defmodule Cauldron.HTTP do
     writer = Process.spawn_link __MODULE__, :writer, [Kernel.self, connection]
     reader = Process.spawn_link __MODULE__, :reader, [Kernel.self, connection]
 
+    connection.socket.process!(writer)
+
     handler(writer, reader, fun, HashDict.new)
   end
 
@@ -110,6 +112,11 @@ defmodule Cauldron.HTTP do
 
       { Res[request: Req[id: id]], :chunk, chunk } ->
         writer <- { id, :chunk, chunk }
+
+        handler(writer, reader, fun, requests)
+
+      { Res[request: Req[id: id]], :stream, path } ->
+        writer <- { id, :stream, path }
 
         handler(writer, reader, fun, requests)
 
@@ -309,6 +316,15 @@ defmodule Cauldron.HTTP do
         end
 
         write_chunk(connection.socket, chunk)
+
+        writer(handler, connection, id, nil)
+
+      { ^id, :stream, path } ->
+        if headers do
+          write_headers(connection.socket, D.put(headers, "Content-Length", File.stat!(path).size))
+        end
+
+        { :ok, _ } = :file.sendfile(path, connection.socket.to_port)
 
         writer(handler, connection, id, nil)
     end
