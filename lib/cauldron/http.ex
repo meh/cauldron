@@ -104,12 +104,12 @@ defmodule Cauldron.HTTP do
 
       { Res[request: Req[id: id]], :chunk, nil } ->
         discard_if(D.get(requests, id), id)
-        writer <- {id, :chunk, nil }
+        writer <- { id, :chunk, nil }
 
         handler(writer, reader, fun, D.delete(requests, id))
 
       { Res[request: Req[id: id]], :chunk, chunk } ->
-        writer <- {id, :chunk, chunk }
+        writer <- { id, :chunk, chunk }
 
         handler(writer, reader, fun, requests)
 
