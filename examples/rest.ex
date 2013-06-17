@@ -14,6 +14,21 @@ defmodule REST do
     end
   end
 
+  def get(URI.Info[path: "/file"], request) do
+    request.response("mix.exs")
+  end
+
+  def get(URI.Info[path: "/io"], request) do
+    request.response(200, File.open!("mix.exs"))
+  end
+
+  def get(URI.Info[path: "/generator"], request) do
+    request.response 200, true, fn
+      true  -> { "lol", false }
+      false -> :eof
+    end
+  end
+
   def get(URI.Info[path: "/yawnt"], request) do
     request.response(200, "yawnt e' scemo\n")
   end
