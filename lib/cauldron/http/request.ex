@@ -25,36 +25,36 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     end
   end
 
-  def response(self) do
+  def reply(self) do
     Response[request: self]
   end
 
-  def response(path, self) when is_binary(path) do
-    response(self).status(200).headers([]).stream(path)
+  def reply(path, self) when is_binary(path) do
+    reply(self).status(200).headers([]).stream(path)
   end
 
-  def response(code, self) do
-    response(self).status(code).headers([]).body("")
+  def reply(code, self) do
+    reply(self).status(code).headers([]).body("")
   end
 
-  def response(code, io, self) when is_pid(io) do
-    response(self).status(code).headers([]).stream(io)
+  def reply(code, io, self) when is_pid(io) do
+    reply(self).status(code).headers([]).stream(io)
   end
 
-  def response(code, body, self) do
-    response(self).status(code).headers([]).body(body)
+  def reply(code, body, self) do
+    reply(self).status(code).headers([]).body(body)
   end
 
-  def response(code, acc, fun, self) when is_function(fun) do
-    response(self).status(code).headers([]).stream(acc, fun)
+  def reply(code, acc, fun, self) when is_function(fun) do
+    reply(self).status(code).headers([]).stream(acc, fun)
   end
 
-  def response(code, headers, body, self) do
-    response(self).status(code).headers(headers).body(body)
+  def reply(code, headers, body, self) do
+    reply(self).status(code).headers(headers).body(body)
   end
 
-  def response(code, headers, acc, fun, self) when is_function(fun) do
-    response(self).status(code).headers(headers).stream(acc, fun)
+  def reply(code, headers, acc, fun, self) when is_function(fun) do
+    reply(self).status(code).headers(headers).stream(acc, fun)
   end
 end
 

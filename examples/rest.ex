@@ -15,43 +15,43 @@ defmodule REST do
   end
 
   def get(URI.Info[path: "/file"], request) do
-    request.response("mix.exs")
+    request.reply("mix.exs")
   end
 
   def get(URI.Info[path: "/io"], request) do
-    request.response(200, File.open!("mix.exs"))
+    request.reply(200, File.open!("mix.exs"))
   end
 
   def get(URI.Info[path: "/generator"], request) do
-    request.response 200, true, fn
+    request.reply 200, true, fn
       true  -> { "lol", false }
       false -> :eof
     end
   end
 
   def get(URI.Info[path: "/yawnt"], request) do
-    request.response(200, "yawnt e' scemo\n")
+    request.reply(200, "yawnt e' scemo\n")
   end
 
   def get(URI.Info[path: "/yawnt/" <> what], request) do
-    request.response(200, "yawnt e' #{what}\n")
+    request.reply(200, "yawnt e' #{what}\n")
   end
 
   def post(URI.Info[path: "/yawnt"], request) do
     case request.body do
       "piace" ->
-        request.response(200, "dire cose sceme")
+        request.reply(200, "dire cose sceme")
 
       _ ->
-        request.response(200, "a me lo chiedi?")
+        request.reply(200, "a me lo chiedi?")
     end
   end
 
   def get(URI.Info[path: "/chuzz"], request) do
-    request.response(200, "chuzz idla\n")
+    request.reply(200, "chuzz idla\n")
   end
 
   def missing(_, _, request) do
-    request.response(404)
+    request.reply(404)
   end
 end
