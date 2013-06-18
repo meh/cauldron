@@ -7,6 +7,10 @@ defrecord Cauldron.HTTP.Request, connection: nil,
                                  headers: nil do
   alias Cauldron.HTTP.Response, as: Response
 
+  def last?(self) do
+    self.headers["Connection"] == nil or self.headers["Connection"] == "close"
+  end
+
   def recv(self) do
     self.handler <- { self, Kernel.self, :read, :chunk }
 
