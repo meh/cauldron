@@ -23,7 +23,7 @@ defmodule Cauldron.HTTP do
   alias Data.Dict, as: D
   alias Data.Seq, as: S
 
-  defrecordp :state, no_more_input: false
+  defrecordp :state, request: nil, no_more_input: false
 
   @doc false
   def handler(connection, fun) do
@@ -32,31 +32,29 @@ defmodule Cauldron.HTTP do
     writer = Process.spawn_link __MODULE__, :writer, [Kernel.self, connection]
     reader = Process.spawn_link __MODULE__, :reader, [Kernel.self, connection]
 
-    connection.socket.process!(writer)
-
-    handler(writer, reader, fun, HashDict.new)
+    handler(connection, writer, reader, fun, HashDict.new)
   end
 
-  defp handler(writer, reader, fun, requests) do
+  defp handler(connection, writer, reader, fun, requests) do
     receive do
       Req[method: method, uri: uri, id: id] = request ->
-        requests = D.put(requests, id, state())
+        requests = D.put(requests, id, state(request: request))
 
         Process.spawn_link fn ->
           fun.(method, uri, request)
         end
 
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
 
       { Req[id: id], _, :read, :discard } ->
         discard_body(id)
 
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
 
       { Req[id: id], pid, :read, :chunk } ->
-        request = D.get(requests, id)
+        state = D.get(requests, id)
 
-        if state(request, :no_more_input) do
+        if state(state, :no_more_input) do
           pid <- { :read, nil }
         else
           # we can block here given if there's still input a new request hasn't
@@ -65,7 +63,7 @@ defmodule Cauldron.HTTP do
           # and there's no issue anyway)
           receive do
             { ^id, :input, nil } ->
-              request = state(request, no_more_input: true)
+              state = state(state, no_more_input: true)
               pid <- { :read, nil }
 
             { ^id, :input, chunk } ->
@@ -73,52 +71,71 @@ defmodule Cauldron.HTTP do
           end
         end
 
-        handler(writer, reader, fun, D.put(requests, id, request))
+        handler(connection, writer, reader, fun, D.put(requests, id, state))
 
       { Req[id: id], pid, :read, :all } ->
-        request = D.get(requests, id)
+        state = D.get(requests, id)
 
-        if state(request, :no_more_input) do
+        if state(state, :no_more_input) do
           pid <- { :read, nil }
         else
           pid <- { :read, read_rest(id) }
 
-          request = state(request, no_more_input: true)
+          state = state(state, no_more_input: true)
         end
 
-        handler(writer, reader, fun, D.put(requests, id, request))
+        handler(connection, writer, reader, fun, D.put(requests, id, state))
 
       { Res[request: Req[id: id, version: version]], :status, code, text }  ->
         writer <- { id, :status, version, code, text }
 
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :headers, headers } ->
         writer <- { id, :headers, headers }
 
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :body, body } ->
         discard_if(D.get(requests, id), id)
         writer <- { id, :body, body }
 
-        handler(writer, reader, fun, D.delete(requests, id))
+        handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :chunk, nil } ->
         discard_if(D.get(requests, id), id)
         writer <- { id, :chunk, nil }
 
-        handler(writer, reader, fun, D.delete(requests, id))
+        handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :chunk, chunk } ->
         writer <- { id, :chunk, chunk }
 
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :stream, path } ->
+        connection.socket.process!(writer)
         writer <- { id, :stream, path }
 
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
+
+      { id, :done } ->
+        request = state(D.get(requests, id), :request)
+
+        if request.last? do
+          connection.socket.active
+          connection.socket.shutdown(:write)
+
+          receive do
+            { :tcp_closed, _ } ->
+              nil
+
+            { :ssl_closed, _ } ->
+              nil
+          end
+        else
+          handler(connection, writer, reader, fun, D.delete(requests, id))
+        end
 
       { :EXIT, pid, _reason } when pid in [writer, reader] ->
         case Process.info(Kernel.self, :links) do
@@ -131,12 +148,12 @@ defmodule Cauldron.HTTP do
 
       # a callback process ended, that means nothing
       { :EXIT, _pid, _reason } ->
-        handler(writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests)
     end
   end
 
-  defp discard_if(request, id) do
-    unless state(request, :no_more_input) do
+  defp discard_if(state, id) do
+    unless state(state, :no_more_input) do
       discard_body(id)
     end
   end
@@ -299,6 +316,8 @@ defmodule Cauldron.HTTP do
         write_headers(connection.socket, D.put(headers, "Content-Length", iolist_size(body)))
         connection.socket.send(iolist_to_binary(body))
 
+        handler <- { id, :done }
+
         writer(handler, connection, id + 1, nil)
 
       { ^id, :chunk, nil } ->
@@ -307,6 +326,8 @@ defmodule Cauldron.HTTP do
         end
 
         connection.socket.send("0\r\n\r\n")
+
+        handler <- { id, :done }
 
         writer(handler, connection, id + 1, nil)
 
@@ -325,6 +346,9 @@ defmodule Cauldron.HTTP do
         end
 
         { :ok, _ } = :file.sendfile(path, connection.socket.to_port)
+        connection.socket.process!(handler)
+
+        handler <- { id, :done }
 
         writer(handler, connection, id, nil)
     end
