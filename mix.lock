@@ -1,5 +1,5 @@
 [ "benchmark": {:git,"https://github.com/meh/elixir-benchmark.git","a6c1c7b0879327f02bfce76b3f3aebaa027cd4ef",[]},
-  "datastructures": {:git,"https://github.com/meh/elixir-datastructures.git","779c68d0c9df7869c95d0037aced8104f106a8ec",[]},
+  "datastructures": {:git,"https://github.com/meh/elixir-datastructures.git","917680cee2a73c74a3246ffefe33dcefa35a3c13",[]},
   "finalizer": {:git,"https://github.com/meh/elixir-finalizer.git","9734c00cec874c22349a00f97e71b2efb26b3713",[]},
   "resource": {:git,"https://github.com/tonyrog/resource.git","37264ec960263cec0df8d6db0da818297b8d5771",[]},
-  "socket": {:git,"https://github.com/meh/elixir-socket.git","3cb00f53bbb443f3b700df80fa1762f03cd876de",[]} ]
+  "socket": {:git,"https://github.com/meh/elixir-socket.git","49b857f3e9b478a25f2a782483022603c349d94b",[]} ]
