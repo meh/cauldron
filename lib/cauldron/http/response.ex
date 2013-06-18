@@ -1,44 +1,49 @@
 defrecord Cauldron.HTTP.Response, request: nil do
+  alias __MODULE__, as: Res
+  alias Cauldron.HTTP.Request, as: Req
+  alias Cauldron.Connection
+  alias Cauldron.Listener
+
   def status(code, self) when is_integer(code) do
     status({ code, text_for(code) }, self)
   end
 
-  def status({ code, text }, self) when is_integer(code) and is_binary(text) do
-    self.request.handler <- { self, :status, code, text }
+  def status({ code, text }, Res[request: Req[handler: handler]] = self) when is_integer(code) and is_binary(text) do
+    handler <- { self, :status, code, text }
 
     self
   end
 
-  def headers(headers, self) when is_list(headers) do
-    self.request.handler <- { self, :headers, Cauldron.HTTP.Headers.from_list(headers) }
+  def headers(headers, Res[request: Req[handler: handler]] = self) when is_list(headers) do
+    handler <- { self, :headers, Cauldron.HTTP.Headers.from_list(headers) }
 
     self
   end
 
-  def headers(headers, self) do
-    self.request.handler <- { self, :headers, headers }
+  def headers(headers, Res[request: Req[handler: handler]] = self) do
+    handler <- { self, :headers, headers }
 
     self
   end
 
-  def stream(acc, fun, self) when is_function(fun) do
-    stream(self, self.request.handler, fun, acc)
+  def stream(acc, fun, Res[request: Req[handler: handler]] = self) when is_function(fun) do
+    stream(self, handler, fun, acc)
 
     self
   end
 
-  def stream(path, self) when is_binary(path) do
+  def stream(path, Res[request: Req[handler: handler]] = self) when is_binary(path) do
     unless File.exists?(path) do
       raise File.Error, reason: :enoent, action: "open", path: path
     end
 
-    self.request.handler <- { self, :stream, path }
+    handler <- { self, :stream, path }
 
     self
   end
 
-  def stream(io, self) when is_pid(io) do
-    stream(self, self.request.handler, io, self.request.connection.listener.chunk_size)
+  def stream(io, Res[request: Req[connection: Connection[listener: Listener[chunk_size: chunk_size]], handler: handler]] = self) when is_pid(io) do
+    stream(self, handler, io, chunk_size)
 
     self
   end
@@ -67,14 +72,14 @@ defrecord Cauldron.HTTP.Response, request: nil do
     end
   end
 
-  def body(body, self) do
-    self.request.handler <- { self, :body, body }
+  def body(body, Res[request: Req[handler: handler]] = self) do
+    handler <- { self, :body, body }
 
     self
   end
 
-  def send(chunk, self) do
-    self.request.handler <- { self, :chunk, chunk }
+  def send(chunk, Res[request: Req[handler: handler]] = self) do
+    handler <- { self, :chunk, chunk }
 
     self
   end

@@ -5,14 +5,15 @@ defrecord Cauldron.HTTP.Request, connection: nil,
                                  uri: nil,
                                  version: nil,
                                  headers: nil do
-  alias Cauldron.HTTP.Response, as: Response
+  alias __MODULE__, as: Req
+  alias Cauldron.HTTP.Response, as: Res
 
-  def last?(self) do
-    self.headers["Connection"] == nil or self.headers["Connection"] == "close"
+  def last?(Req[headers: headers]) do
+    headers["Connection"] == nil or headers["Connection"] == "close"
   end
 
-  def recv(self) do
-    self.handler <- { self, Kernel.self, :read, :chunk }
+  def recv(Req[handler: handler] = self) do
+    handler <- { self, Kernel.self, :read, :chunk }
 
     receive do
       { :read, chunk } ->
@@ -20,8 +21,8 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     end
   end
 
-  def body(self) do
-    self.handler <- { self, Kernel.self, :read, :all }
+  def body(Req[handler: handler] = self) do
+    handler <- { self, Kernel.self, :read, :all }
 
     receive do
       { :read, body } ->
@@ -30,7 +31,7 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   end
 
   def reply(self) do
-    Response[request: self]
+    Res.new(request: self)
   end
 
   def reply(path, self) when is_binary(path) do
