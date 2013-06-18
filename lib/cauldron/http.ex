@@ -188,12 +188,13 @@ defmodule Cauldron.HTTP do
   end
 
   defp reader(handler, connection, id) do
-    case request(connection) do
-      { method, path, version } ->
-        headers = headers(connection)
-        host    = headers["Host"] || "localhost"
-        port    = connection.listener.port
-        uri     = URI.parse("#{if connection.secure?, do: "https", else: "http"}://#{host}:#{port}#{path}")
+    connection.socket.options(packet: :http_bin)
+
+    if match?({ method, path, version }, request(connection)) do
+      if headers = headers(connection) do
+        host = headers["Host"] || "localhost"
+        port = connection.listener.port
+        uri  = URI.parse("#{if connection.secure?, do: "https", else: "http"}://#{host}:#{port}#{path}")
 
         request = Req[ connection: connection,
                        handler:    handler,
@@ -218,59 +219,56 @@ defmodule Cauldron.HTTP do
         end
 
         reader(handler, connection, id + 1)
+      end
+    end
+  end
 
-      nil ->
+  def request(connection) do
+    case connection.socket.recv do
+      { :ok, { :http_request, method, { :abs_path, path }, version } } ->
+        if is_atom(method) do
+          method = atom_to_binary(method)
+        else
+          method = String.upcase(method)
+        end
+
+        { method, path, version }
+
+      { :ok, nil } ->
+        nil
+
+      { :http_error, _ } ->
+        nil
+
+      { :error, :einval } ->
         nil
     end
   end
 
-  defp request(connection) do
-    connection.socket.options(packet: :line)
-
-    case connection.socket.recv! do
+  def headers(connection) do
+    case headers([], connection) do
       nil ->
         nil
 
-      line ->
-        [method, path, "HTTP/" <> version] = String.split(line)
-
-        { String.upcase(method), path, version }
+      list ->
+        H.from_list(list)
     end
   end
 
-  defp headers(connection) do
-    connection.socket.options(packet: :line)
+  defp headers(acc, connection) do
+    case connection.socket.recv do
+      { :ok, { :http_header, _, name, _, value } } ->
+        [{ name, value } | acc] |> headers(connection)
 
-    headers([], connection.socket) |> H.from_list
-  end
+      { :ok, :http_eoh } ->
+        acc
 
-  defp headers([], socket) do
-    case String.rstrip(socket.recv!) do
-      "" ->
-        []
+      { :ok, nil } ->
+        nil
 
-      line ->
-        [header(line)] |> headers(socket)
+      { :error, :einval } ->
+        nil
     end
-  end
-
-  defp headers([{ name, value } = last | rest], socket) do
-    case String.rstrip(socket.recv!) do
-      "" ->
-        [last | rest]
-
-      " " <> more ->
-        [{ name, [value, String.lstrip(more)] } | rest] |> headers(socket)
-
-      line ->
-        [header(line), last | rest] |> headers(socket)
-    end
-  end
-
-  defp header(line) do
-    [name, value] = String.split(line, ":", global: false)
-
-    { String.rstrip(name), String.lstrip(value) }
   end
 
   defp read_body(handler, id, _, _, 0) do
@@ -304,8 +302,8 @@ defmodule Cauldron.HTTP do
 
   defp writer(handler, connection, id, headers) do
     receive do
-      { ^id, :status, version, code, text } ->
-        connection.socket.send ["HTTP/", version, " ", integer_to_binary(code), " ", text, "\r\n"]
+      { ^id, :status, { major, minor }, code, text } ->
+        connection.socket.send ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
 
         writer(handler, connection, id, headers)
 

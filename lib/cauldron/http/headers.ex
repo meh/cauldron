@@ -8,7 +8,18 @@ defmodule Cauldron.HTTP.Headers do
   # TODO: coalesce multiple instances of same header
   def from_list(list) do
     headers(list: lc { name, value } inlist list do
-      { String.downcase(name), name, iolist_to_binary(value) }
+      if is_atom(name) do
+        value = case name do
+          _ ->
+            value
+        end
+
+        name = atom_to_binary(name)
+
+        { String.downcase(name), name, value }
+      else
+        { String.downcase(name), name, iolist_to_binary(value) }
+      end
     end)
   end
 
