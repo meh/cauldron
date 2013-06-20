@@ -105,15 +105,15 @@ defmodule Cauldron do
   end
 
   @doc false
-  def acceptor(listener, fun) do
-    connection = Connection.new(listener: listener, socket: listener.socket.accept!(automatic: false))
+  def acceptor(Listener[socket: socket, monitor: monitor] = listener, fun) do
+    connection = Connection.new(listener: listener, socket: socket.accept!(automatic: false))
     connection = connection.protocol(if connection.secure? do
-      connection.socket.negotiated_protocol
+      socket.negotiated_protocol
     end || "http/?")
 
-    listener.monitor <- { connection, :connected }
+    monitor <- { connection, :connected }
 
-    connection.socket.process!(case connection.protocol do
+    socket.process(case connection.protocol do
       "http/" <> _ ->
         Process.spawn Cauldron.HTTP, :handler, [connection, fun]
 
