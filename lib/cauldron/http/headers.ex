@@ -63,7 +63,7 @@ defmodule Cauldron.HTTP.Headers do
   end
 
   def reduce(headers(list: list), acc, fun) do
-    Data.reduce list, acc, fn { _, key, value }, acc ->
+    List.foldl list, acc, fn { _, key, value }, acc ->
       fun.({ key, value }, acc)
     end
   end
