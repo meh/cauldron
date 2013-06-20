@@ -127,16 +127,10 @@ defmodule Cauldron.HTTP do
         request = state(D.get(requests, id), :request)
 
         if request.last? do
-          connection.socket.active
-          connection.socket.shutdown(:write)
+          socket.shutdown
 
-          receive do
-            { :tcp_closed, _ } ->
-              nil
-
-            { :ssl_closed, _ } ->
-              nil
-          end
+          Process.exit(writer, :kill)
+          Process.exit(reader, :kill)
         else
           handler(connection, writer, reader, fun, D.delete(requests, id))
         end
