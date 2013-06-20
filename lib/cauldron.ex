@@ -96,6 +96,9 @@ defmodule Cauldron do
 
       { Connection[] = _connection, :disconnected } ->
         nil
+
+      { :EXIT, _pid, _reason } ->
+        nil
     end
 
     monitor
