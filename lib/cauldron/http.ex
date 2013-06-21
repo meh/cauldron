@@ -23,8 +23,8 @@ defmodule Cauldron.HTTP do
   alias Cauldron.HTTP.Request, as: Req
   alias Cauldron.HTTP.Response, as: Res
 
-  alias Data.Dict, as: D
-  alias Data.Seq, as: S
+  alias Data.Dict
+  alias Data.Seq
 
   defrecordp :state, request: nil, no_more_input: false
 
@@ -43,7 +43,7 @@ defmodule Cauldron.HTTP do
   defp handler(Conn[socket: socket] = connection, writer, reader, fun, requests) do
     receive do
       Req[method: method, uri: uri, id: id] = request ->
-        requests = D.put(requests, id, state(request: request))
+        requests = Dict.put(requests, id, state(request: request))
 
         Process.spawn_link fn ->
           fun.(method, uri, request)
@@ -57,7 +57,7 @@ defmodule Cauldron.HTTP do
         handler(connection, writer, reader, fun, requests)
 
       { Req[id: id], pid, :read, :chunk } ->
-        state = D.get(requests, id)
+        state = Dict.get(requests, id)
 
         if state(state, :no_more_input) do
           pid <- { :read, nil }
@@ -76,10 +76,10 @@ defmodule Cauldron.HTTP do
           end
         end
 
-        handler(connection, writer, reader, fun, D.put(requests, id, state))
+        handler(connection, writer, reader, fun, Dict.put(requests, id, state))
 
       { Req[id: id], pid, :read, :all } ->
-        state = D.get(requests, id)
+        state = Dict.get(requests, id)
 
         if state(state, :no_more_input) do
           pid <- { :read, nil }
@@ -89,7 +89,7 @@ defmodule Cauldron.HTTP do
           state = state(state, no_more_input: true)
         end
 
-        handler(connection, writer, reader, fun, D.put(requests, id, state))
+        handler(connection, writer, reader, fun, Dict.put(requests, id, state))
 
       { Res[request: Req[id: id, version: version]], :status, code, text }  ->
         writer <- { id, :status, version, code, text }
@@ -102,13 +102,13 @@ defmodule Cauldron.HTTP do
         handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :body, body } ->
-        discard_if(D.get(requests, id), id)
+        discard_if(Dict.get(requests, id), id)
         writer <- { id, :body, body }
 
         handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :chunk, nil } ->
-        discard_if(D.get(requests, id), id)
+        discard_if(Dict.get(requests, id), id)
         writer <- { id, :chunk, nil }
 
         handler(connection, writer, reader, fun, requests)
@@ -125,7 +125,7 @@ defmodule Cauldron.HTTP do
         handler(connection, writer, reader, fun, requests)
 
       { id, :done } ->
-        request = state(D.get(requests, id), :request)
+        request = state(Dict.get(requests, id), :request)
 
         if request.last? do
           socket.shutdown
@@ -133,7 +133,7 @@ defmodule Cauldron.HTTP do
           Process.exit(writer, :kill)
           Process.exit(reader, :kill)
         else
-          handler(connection, writer, reader, fun, D.delete(requests, id))
+          handler(connection, writer, reader, fun, Dict.delete(requests, id))
         end
 
       { :EXIT, pid, _reason } when pid in [writer, reader] ->
@@ -310,7 +310,7 @@ defmodule Cauldron.HTTP do
         writer(handler, connection, id, headers)
 
       { ^id, :body, body } ->
-        write_headers(socket, D.put(headers, "Content-Length", iolist_size(body)))
+        write_headers(socket, Dict.put(headers, "Content-Length", iolist_size(body)))
         socket.send(iolist_to_binary(body))
 
         handler <- { id, :done }
@@ -319,7 +319,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :chunk, nil } ->
         if headers do
-          write_headers(socket, D.put(headers, "Transfer-Encoding", "chunked"))
+          write_headers(socket, Dict.put(headers, "Transfer-Encoding", "chunked"))
         end
 
         socket.send("0\r\n\r\n")
@@ -330,7 +330,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :chunk, chunk } ->
         if headers do
-          write_headers(socket, D.put(headers, "Transfer-Encoding", "chunked"))
+          write_headers(socket, Dict.put(headers, "Transfer-Encoding", "chunked"))
         end
 
         write_chunk(socket, chunk)
@@ -339,7 +339,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :stream, path } ->
         if headers do
-          write_headers(socket, D.put(headers, "Content-Length", File.stat!(path).size))
+          write_headers(socket, Dict.put(headers, "Content-Length", File.stat!(path).size))
         end
 
         { :ok, _ } = :file.sendfile(path, socket.to_port)
@@ -352,7 +352,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp write_headers(socket, headers) do
-    S.each headers, fn { name, value } ->
+    Seq.each headers, fn { name, value } ->
       socket.send! [name, ": ", to_binary(value), "\r\n"]
     end
 
