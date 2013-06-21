@@ -1,4 +1,6 @@
 defmodule Cauldron.HTTP.Headers do
+  alias Cauldron.Utils
+
   defrecordp :headers, list: []
 
   def new do
@@ -16,19 +18,19 @@ defmodule Cauldron.HTTP.Headers do
 
         name = atom_to_binary(name)
 
-        { String.downcase(name), name, value }
+        { Utils.downcase(name), name, value }
       else
-        { String.downcase(name), name, iolist_to_binary(value) }
+        { Utils.downcase(name), name, iolist_to_binary(value) }
       end
     end)
   end
 
   def contains?(headers(list: list), key) do
-    List.keymember?(list, String.downcase(key), 0)
+    List.keymember?(list, Utils.downcase(key), 0)
   end
 
   def get(headers(list: list), key, default // nil) do
-    case List.keyfind(list, String.downcase(key), 0, default) do
+    case List.keyfind(list, Utils.downcase(key), 0, default) do
       { _, _, value } ->
         value
 
@@ -38,12 +40,12 @@ defmodule Cauldron.HTTP.Headers do
   end
 
   def put(headers(list: list), key, value) do
-    headers(list: List.keystore(list, String.downcase(key), 0,
-      { String.downcase(key), key, value }))
+    headers(list: List.keystore(list, Utils.downcase(key), 0,
+      { Utils.downcase(key), key, value }))
   end
 
   def delete(headers(list: list), key) do
-    headers(list: List.keydelete(list, String.downcase(key), 0))
+    headers(list: List.keydelete(list, Utils.downcase(key), 0))
   end
 
   def keys(headers(list: list)) do

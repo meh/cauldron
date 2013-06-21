@@ -1,0 +1,35 @@
+defmodule Cauldron.Utils do
+  @spec downcase(String.t) :: String.t
+  def downcase(string) do
+    do_downcase(string) |> list_to_binary
+  end
+
+  defp do_downcase(<< char :: size(8), rest :: binary >>) when char in ?A .. ?Z do
+    [char + 32] ++ do_downcase(rest)
+  end
+
+  defp do_downcase(<< char :: size(8), rest :: binary >>) do
+    [char] ++ do_downcase(rest)
+  end
+
+  defp do_downcase("") do
+    []
+  end
+
+  @spec upcase(String.t) :: String.t
+  def upcase(string) do
+    do_upcase(string) |> list_to_binary
+  end
+
+  defp do_upcase(<< char :: size(8), rest :: binary >>) when char in ?a .. ?z do
+    [char - 32] ++ do_upcase(rest)
+  end
+
+  defp do_upcase(<< char :: size(8), rest :: binary >>) do
+    [char] ++ do_upcase(rest)
+  end
+
+  defp do_upcase("") do
+    []
+  end
+end

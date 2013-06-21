@@ -17,6 +17,7 @@ defmodule Cauldron.HTTP do
   """
 
   alias Cauldron.Connection, as: Conn
+  alias Cauldron.Utils
 
   alias Cauldron.HTTP.Headers, as: H
   alias Cauldron.HTTP.Request, as: Req
@@ -227,7 +228,7 @@ defmodule Cauldron.HTTP do
         if is_atom(method) do
           method = atom_to_binary(method)
         else
-          method = String.upcase(method)
+          method = Utils.upcase(method)
         end
 
         { method, path, version }
