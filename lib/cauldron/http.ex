@@ -16,7 +16,8 @@ defmodule Cauldron.HTTP do
 
   """
 
-  alias Cauldron.Connection, as: Conn
+  alias Cauldron.Connection
+  alias Cauldron.Listener
   alias Cauldron.Utils
 
   alias Cauldron.HTTP.Headers, as: H
@@ -29,10 +30,12 @@ defmodule Cauldron.HTTP do
   defrecordp :state, request: nil, no_more_input: false
 
   @doc false
+  def handler(connection, module) when is_atom module do
+    handler(connection, function(module, :handle, 3))
+  end
+
   def handler(connection, fun) do
     Process.flag(:trap_exit, true)
-
-#    :fprof.trace(:start)
 
     writer = Process.spawn_link __MODULE__, :writer, [Kernel.self, connection]
     reader = Process.spawn_link __MODULE__, :reader, [Kernel.self, connection]
@@ -40,7 +43,7 @@ defmodule Cauldron.HTTP do
     handler(connection, writer, reader, fun, HashDict.new)
   end
 
-  defp handler(Conn[socket: socket] = connection, writer, reader, fun, requests) do
+  defp handler(Connection[socket: socket] = connection, writer, reader, fun, requests) do
     receive do
       Req[method: method, uri: uri, id: id] = request ->
         requests = Dict.put(requests, id, state(request: request))
@@ -186,43 +189,46 @@ defmodule Cauldron.HTTP do
     reader(handler, connection, 0)
   end
 
-  defp reader(handler, Conn[socket: socket] = connection, id) do
+  defp reader(handler, Connection[socket: socket, listener: Listener[port: port]] = connection, id) do
     socket.options(packet: :http_bin)
 
-    if match?({ method, path, version }, request(connection)) do
-      if headers = headers(connection) do
-        host = headers["Host"] || "localhost"
-        port = connection.listener.port
-        uri  = URI.parse("#{if connection.secure?, do: "https", else: "http"}://#{host}:#{port}#{path}")
+    case request(connection) do
+      { method, path, version } ->
+        if headers = headers(connection) do
+          host = headers["Host"] || "localhost"
+          uri  = URI.parse("#{if connection.secure?, do: "https", else: "http"}://#{host}:#{port}#{path}")
 
-        request = Req[ connection: connection,
-                       handler:    handler,
-                       id:         id,
-                       method:     method,
-                       uri:        uri,
-                       version:    version,
-                       headers:    headers ]
+          request = Req[ connection: connection,
+                         handler:    handler,
+                         id:         id,
+                         method:     method,
+                         uri:        uri,
+                         version:    version,
+                         headers:    headers ]
 
-        socket.options(packet: :raw)
+          socket.options(packet: :raw)
 
-        handler <- request
+          handler <- request
 
-        if length = headers["Content-Length"] do
-          read_body(handler, id, socket, request.connection.listener.chunk_size, binary_to_integer(length))
-        else
-          if headers["Transfer-Encoding"] == "chunked" do
-            read_body(handler, id, socket, request.connection.listener.chunk_size)
+          if length = headers["Content-Length"] do
+            read_body(handler, id, socket, request.connection.listener.chunk_size, binary_to_integer(length))
           else
-            no_body(handler, id)
+            if headers["Transfer-Encoding"] == "chunked" do
+              read_body(handler, id, socket, request.connection.listener.chunk_size)
+            else
+              no_body(handler, id)
+            end
           end
+
+          reader(handler, connection, id + 1)
         end
 
-        reader(handler, connection, id + 1)
-      end
+      _ ->
+        nil
     end
   end
 
-  def request(Conn[socket: socket]) do
+  def request(Connection[socket: socket]) do
     case socket.recv do
       { :ok, { :http_request, method, { :abs_path, path }, version } } ->
         if is_atom(method) do
@@ -254,7 +260,7 @@ defmodule Cauldron.HTTP do
     end
   end
 
-  defp headers(acc, Conn[socket: socket] = connection) do
+  defp headers(acc, Connection[socket: socket] = connection) do
     case socket.recv do
       { :ok, { :http_header, _, name, _, value } } ->
         [{ name, value } | acc] |> headers(connection)
@@ -299,7 +305,7 @@ defmodule Cauldron.HTTP do
     writer(handler, connection, 0, nil)
   end
 
-  defp writer(handler, Conn[socket: socket] = connection, id, headers) do
+  defp writer(handler, Connection[socket: socket] = connection, id, headers) do
     receive do
       { ^id, :status, { major, minor }, code, text } ->
         socket.send ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
