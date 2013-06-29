@@ -58,16 +58,12 @@ defmodule Cauldron do
     end
   end
 
-  def open(options // [], fun) do
-    if is_atom(fun) do
-      fun = function(fun, :handle, 3)
-    end
-
-    Process.spawn __MODULE__, :monitor, [fun, options]
+  def open(options // [], what) do
+    Process.spawn __MODULE__, :monitor, [what, options]
   end
 
   @doc false
-  def monitor(fun, options) do
+  def monitor(what, options) do
     Process.flag(:trap_exit, true)
 
     listen = Keyword.get(options, :listen, [[port: 80]])
@@ -82,7 +78,7 @@ defmodule Cauldron do
       end)
 
       Enum.each 1 .. (listener.acceptors), fn _ ->
-        Process.spawn_link __MODULE__, :acceptor, [listener, fun]
+        Process.spawn_link __MODULE__, :acceptor, [listener, what]
       end
     end
 
@@ -105,7 +101,7 @@ defmodule Cauldron do
   end
 
   @doc false
-  def acceptor(Listener[socket: socket, monitor: monitor] = listener, fun) do
+  def acceptor(Listener[socket: socket, monitor: monitor] = listener, what) do
     connection = Connection.new(listener: listener, socket: socket.accept!(automatic: false))
     connection = connection.protocol(if connection.secure? do
       socket.negotiated_protocol
@@ -115,12 +111,12 @@ defmodule Cauldron do
 
     socket.process(case connection.protocol do
       "http/" <> _ ->
-        Process.spawn Cauldron.HTTP, :handler, [connection, fun]
+        Process.spawn Cauldron.HTTP, :handler, [connection, what]
 
       "spdy/" <> _ ->
-        Process.spawn Cauldron.SPDY, :handler, [connection, fun]
+        Process.spawn Cauldron.SPDY, :handler, [connection, what]
     end)
 
-    acceptor(listener, fun)
+    acceptor(listener, what)
   end
 end
