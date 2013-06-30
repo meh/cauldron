@@ -235,14 +235,15 @@ defmodule Cauldron.HTTP do
 
           socket.packet!(:raw)
 
-          if length = headers["Content-Length"] do
-            read_body(handler, id, socket, chunk_size, binary_to_integer(length))
-          else
-            if headers["Transfer-Encoding"] == "chunked" do
+          cond do
+            length = H.get(headers, "Content-Length") ->
+              read_body(handler, id, socket, chunk_size, length)
+
+            H.get(headers, "Transfer-Encoding") == "chunked" ->
               read_body(handler, id, socket, chunk_size)
-            else
+
+            true ->
               no_body(handler, id)
-            end
           end
 
           reader(handler, connection, id + 1)
