@@ -197,14 +197,31 @@ defmodule Cauldron.HTTP do
     reader(handler, connection, 0)
   end
 
-  defp reader(handler, Connection[socket: socket, listener: Listener[port: port]] = connection, id) do
+  defp reader(handler, Connection[socket: socket, listener: Listener[port: port, chunk_size: chunk_size]] = connection, id) do
     socket.options(packet: :http_bin)
 
     case request(connection) do
       { method, path, version } ->
         if headers = headers(connection) do
-          host = headers["Host"] || "localhost"
-          uri  = URI.parse("#{if connection.secure?, do: "https", else: "http"}://#{host}:#{port}#{path}")
+          destructure [path, fragment], String.split(path, "#", global: false)
+          destructure [path, query], String.split(path, "?", global: false)
+
+          if authority = Dict.get(headers, "Host") do
+            destructure [host, port], String.split(authority, ":", global: false)
+
+            port = binary_to_integer(port)
+          else
+            authority = "localhost:#{port}"
+            host      = "localhost"
+          end
+
+          uri = URI.Info[ scheme: if(connection.secure?, do: "https", else: "http"),
+                          authority: authority,
+                          host:      host,
+                          port:      port,
+                          path:      path,
+                          query:     query,
+                          fragment:  fragment ]
 
           request = Req[ connection: connection,
                          handler:    handler,
@@ -214,15 +231,15 @@ defmodule Cauldron.HTTP do
                          version:    version,
                          headers:    headers ]
 
-          socket.options(packet: :raw)
-
           handler <- request
 
+          socket.options(packet: :raw)
+
           if length = headers["Content-Length"] do
-            read_body(handler, id, socket, request.connection.listener.chunk_size, binary_to_integer(length))
+            read_body(handler, id, socket, chunk_size, binary_to_integer(length))
           else
             if headers["Transfer-Encoding"] == "chunked" do
-              read_body(handler, id, socket, request.connection.listener.chunk_size)
+              read_body(handler, id, socket, chunk_size)
             else
               no_body(handler, id)
             end
