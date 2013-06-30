@@ -20,6 +20,9 @@ defmodule Cauldron.HTTP.Headers do
     headers(list: lc { name, value } inlist list do
       if is_atom(name) do
         value = case name do
+          :"Content-Length" ->
+            binary_to_integer(value)
+
           _ ->
             value
         end
