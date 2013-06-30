@@ -58,7 +58,7 @@ defmodule Cauldron do
     end
   end
 
-  def open(options // [], what) do
+  def open(what, options // []) do
     Process.spawn __MODULE__, :monitor, [what, options]
   end
 
