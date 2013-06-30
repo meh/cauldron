@@ -342,7 +342,7 @@ defmodule Cauldron.HTTP do
         writer(handler, connection, id, headers)
 
       { ^id, :body, body } ->
-        write_headers(socket, Dict.put(headers, "Content-Length", iolist_size(body)))
+        write_headers(socket, H.put(headers, "Content-Length", iolist_size(body)))
         socket.send!(iolist_to_binary(body))
 
         handler <- { id, :done }
@@ -351,7 +351,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :chunk, nil } ->
         if headers do
-          write_headers(socket, Dict.put(headers, "Transfer-Encoding", "chunked"))
+          write_headers(socket, H.put(headers, "Transfer-Encoding", "chunked"))
         end
 
         socket.send!("0\r\n\r\n")
@@ -362,7 +362,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :chunk, chunk } ->
         if headers do
-          write_headers(socket, Dict.put(headers, "Transfer-Encoding", "chunked"))
+          write_headers(socket, H.put(headers, "Transfer-Encoding", "chunked"))
         end
 
         write_chunk(socket, chunk)
@@ -371,7 +371,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :stream, path } ->
         if headers do
-          write_headers(socket, Dict.put(headers, "Content-Length", File.stat!(path).size))
+          write_headers(socket, H.put(headers, "Content-Length", File.stat!(path).size))
         end
 
         { :ok, _ } = :file.sendfile(path, socket.to_port)
