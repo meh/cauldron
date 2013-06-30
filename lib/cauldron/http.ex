@@ -334,7 +334,7 @@ defmodule Cauldron.HTTP do
   defp writer(handler, Connection[socket: socket] = connection, id, headers) do
     receive do
       { ^id, :status, { major, minor }, code, text } ->
-        socket.send ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
+        socket.send! ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
 
         writer(handler, connection, id, headers)
 
@@ -343,7 +343,7 @@ defmodule Cauldron.HTTP do
 
       { ^id, :body, body } ->
         write_headers(socket, Dict.put(headers, "Content-Length", iolist_size(body)))
-        socket.send(iolist_to_binary(body))
+        socket.send!(iolist_to_binary(body))
 
         handler <- { id, :done }
 
@@ -354,7 +354,7 @@ defmodule Cauldron.HTTP do
           write_headers(socket, Dict.put(headers, "Transfer-Encoding", "chunked"))
         end
 
-        socket.send("0\r\n\r\n")
+        socket.send!("0\r\n\r\n")
 
         handler <- { id, :done }
 
