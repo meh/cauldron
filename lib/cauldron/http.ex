@@ -198,7 +198,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp reader(handler, Connection[socket: socket, listener: Listener[port: port, chunk_size: chunk_size]] = connection, id) do
-    socket.options(packet: :http_bin)
+    socket.packet!(:http_bin)
 
     case request(connection) do
       { method, path, version } ->
@@ -233,7 +233,7 @@ defmodule Cauldron.HTTP do
 
           handler <- request
 
-          socket.options(packet: :raw)
+          socket.packet!(:raw)
 
           if length = headers["Content-Length"] do
             read_body(handler, id, socket, chunk_size, binary_to_integer(length))
