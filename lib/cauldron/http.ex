@@ -162,8 +162,11 @@ defmodule Cauldron.HTTP do
 
       # a callback process errored
       { :EXIT, pid, reason } ->
-        request = Dict.get(requests, pid)
-        request.reply(500)
+        Req[id: id] = request = Dict.get(requests, pid)
+
+        if Data.contains?(requests, id) do
+          request.reply(500)
+        end
 
         handler(connection, writer, reader, fun, Dict.delete(requests, pid))
     end
