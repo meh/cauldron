@@ -54,13 +54,13 @@ defmodule Cauldron.HTTP do
   defp handler(Connection[socket: socket] = connection, writer, reader, fun, requests) do
     receive do
       Req[method: method, uri: uri, id: id] = request ->
-        requests = Dict.put(requests, id, state(request: request))
-
-        Process.spawn_link fn ->
+        pid = Process.spawn_link fn ->
           fun.(method, uri, request)
         end
 
-        handler(connection, writer, reader, fun, requests)
+        handler(connection, writer, reader, fun, requests
+          |> Dict.put(pid, request)
+          |> Dict.put(id, state(request: request)))
 
       { Req[id: id], _, :read, :discard } ->
         discard_body(id)
@@ -156,9 +156,16 @@ defmodule Cauldron.HTTP do
             nil
         end
 
-      # a callback process ended, that means nothing
-      { :EXIT, _pid, _reason } ->
-        handler(connection, writer, reader, fun, requests)
+      # a callback process ended
+      { :EXIT, pid, :normal } ->
+        handler(connection, writer, reader, fun, Dict.delete(requests, pid))
+
+      # a callback process errored
+      { :EXIT, pid, reason } ->
+        request = Dict.get(requests, pid)
+        request.reply(500)
+
+        handler(connection, writer, reader, fun, Dict.delete(requests, pid))
     end
   end
 
