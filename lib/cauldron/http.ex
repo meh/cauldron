@@ -136,9 +136,9 @@ defmodule Cauldron.HTTP do
         handler(connection, writer, reader, fun, requests)
 
       { id, :done } ->
-        request = state(Dict.get(requests, id), :request)
+        state = Dict.get(requests, id)
 
-        if request.last? do
+        if state(state, :request).last? do
           socket.shutdown
 
           Process.exit(writer, :kill)
