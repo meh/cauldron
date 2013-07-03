@@ -31,7 +31,7 @@ defmodule Cauldron do
 
   """
 
-  defrecord Listener, monitor: nil, socket: nil, port: nil, acceptors: 1, backlog: 128, chunk_size: 4096, secure: nil do
+  defrecord Listener, monitor: nil, debug: false, socket: nil, port: nil, acceptors: 1, backlog: 128, chunk_size: 4096, secure: nil do
     def secure?(Listener[secure: nil]), do: false
     def secure?(Listener[]),            do: true
 
@@ -67,10 +67,12 @@ defmodule Cauldron do
     Process.flag(:trap_exit, true)
 
     listen = Keyword.get(options, :listen, [[port: 80]])
+    debug  = Keyword.get(options, :debug, false)
 
     Enum.each listen, fn desc ->
       listener = Listener.new(desc)
       listener = listener.monitor(Kernel.self)
+      listener = listener.debug(debug)
       listener = listener.socket(if listener.secure? do
         Socket.SSL.listen!(listener.port, listener.to_options)
       else

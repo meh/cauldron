@@ -51,7 +51,7 @@ defmodule Cauldron.HTTP do
     handler(connection, writer, reader, fun, HashDict.new)
   end
 
-  defp handler(Connection[socket: socket] = connection, writer, reader, fun, requests) do
+  defp handler(Connection[socket: socket, listener: Listener[debug: debug]] = connection, writer, reader, fun, requests) do
     receive do
       Req[method: method, uri: uri, id: id] = request ->
         pid = Process.spawn_link fn ->
@@ -165,7 +165,11 @@ defmodule Cauldron.HTTP do
         Req[id: id] = request = Dict.get(requests, pid)
 
         if Data.contains?(requests, id) do
-          request.reply(500)
+          if debug do
+            request.reply(500, inspect(reason))
+          else
+            request.reply(500)
+          end
         end
 
         handler(connection, writer, reader, fun, Dict.delete(requests, pid))
