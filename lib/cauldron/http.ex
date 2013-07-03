@@ -193,7 +193,13 @@ defmodule Cauldron.HTTP do
   end
 
   defp read_rest(id) do
-    read_rest([], id) |> iolist_to_binary
+    case read_rest([], id) do
+      [] ->
+        nil
+
+      result ->
+        iolist_to_binary(result)
+    end
   end
 
   defp read_rest(acc, id) do
