@@ -74,9 +74,8 @@ defmodule Cauldron.HTTP do
           pid <- { :read, nil }
         else
           # we can block here given if there's still input a new request hasn't
-          # come in yet, and there's no reason to be writing while the body is
-          # being read (unless you're doing chunking, then you'd be reading by chunk
-          # and there's no issue anyway)
+          # come in yet, and there's no reason to be writing while a chunk is
+          # being read
           receive do
             { ^id, :input, nil } ->
               state = state(state, no_more_input: true)
@@ -147,6 +146,7 @@ defmodule Cauldron.HTTP do
           handler(connection, writer, reader, fun, Dict.delete(requests, id))
         end
 
+      # reader or writer died
       { :EXIT, pid, _reason } when pid in [writer, reader] ->
         case Process.info(Kernel.self, :links) do
           { :links, links } ->
