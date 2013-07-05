@@ -229,7 +229,7 @@ defmodule Cauldron.HTTP do
           if authority = Dict.get(headers, "Host") do
             destructure [host, port], String.split(authority, ":", global: false)
 
-            port = binary_to_integer(port)
+            port = binary_to_integer(port || "80")
           else
             authority = "localhost:#{port}"
             host      = "localhost"
