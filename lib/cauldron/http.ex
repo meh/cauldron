@@ -223,25 +223,53 @@ defmodule Cauldron.HTTP do
     case request(connection) do
       { method, path, version } ->
         if headers = headers(connection) do
-          destructure [path, fragment], String.split(path, "#", global: false)
-          destructure [path, query], String.split(path, "?", global: false)
+          uri = case path do
+            { :abs_path, path } ->
+              { path, query, fragment } = split(path)
 
-          if authority = Dict.get(headers, "Host") do
-            destructure [host, port], String.split(authority, ":", global: false)
+              if authority = Dict.get(headers, "Host") do
+                destructure [host, port], String.split(authority, ":", global: false)
 
-            port = binary_to_integer(port || "80")
-          else
-            authority = "localhost:#{port}"
-            host      = "localhost"
+                port = binary_to_integer(port || "80")
+              else
+                authority = "localhost:#{port}"
+                host      = "localhost"
+              end
+
+              URI.Info[ scheme:    if(connection.secure?, do: "https", else: "http"),
+                        authority: authority,
+                        host:      host,
+                        port:      port,
+                        path:      path,
+                        query:     query,
+                        fragment:  fragment ]
+
+            { :absoluteURI, scheme, host, port, path } ->
+              { path, query, fragment } = split(path)
+
+              port = case port do
+                :undefined ->
+                  if scheme == :http do
+                    80
+                  else
+                    443
+                  end
+
+                port ->
+                  port
+              end
+
+              URI.Info[ scheme:    atom_to_binary(scheme),
+                        authority: "#{host}:#{port}",
+                        host:      host,
+                        port:      port,
+                        path:      path,
+                        query:     query,
+                        fragment:  fragment ]
+
+            path when is_binary(path) ->
+              path
           end
-
-          uri = URI.Info[ scheme: if(connection.secure?, do: "https", else: "http"),
-                          authority: authority,
-                          host:      host,
-                          port:      port,
-                          path:      path,
-                          query:     query,
-                          fragment:  fragment ]
 
           request = Req[ connection: connection,
                          handler:    handler,
@@ -274,16 +302,16 @@ defmodule Cauldron.HTTP do
     end
   end
 
-  def request(Connection[socket: socket]) do
+  defp request(Connection[socket: socket]) do
     case socket.recv do
-      { :ok, { :http_request, method, { :abs_path, path }, version } } ->
+      { :ok, { :http_request, method, uri, version } } ->
         if is_atom(method) do
           method = atom_to_binary(method)
         else
           method = Utils.upcase(method)
         end
 
-        { method, path, version }
+        { method, uri, version }
 
       { :ok, nil } ->
         nil
@@ -296,7 +324,14 @@ defmodule Cauldron.HTTP do
     end
   end
 
-  def headers(connection) do
+  defp split(path) do
+    destructure [path, fragment], String.split(path, "#", global: false)
+    destructure [path, query], String.split(path, "?", global: false)
+
+    { path, query, fragment }
+  end
+
+  defp headers(connection) do
     case headers([], connection) do
       nil ->
         nil
