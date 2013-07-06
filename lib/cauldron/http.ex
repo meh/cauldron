@@ -267,6 +267,10 @@ defmodule Cauldron.HTTP do
                         query:     query,
                         fragment:  fragment ]
 
+            { :scheme, host, port } ->
+              URI.Info[ host: host,
+                        port: binary_to_integer(port) ]
+
             path when is_binary(path) ->
               path
           end
