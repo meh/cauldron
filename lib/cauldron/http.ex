@@ -313,10 +313,10 @@ defmodule Cauldron.HTTP do
 
         { method, uri, version }
 
-      { :ok, nil } ->
+      { :ok, { :http_error, _ } } ->
         nil
 
-      { :http_error, _ } ->
+      { :ok, nil } ->
         nil
 
       { :error, :einval } ->
