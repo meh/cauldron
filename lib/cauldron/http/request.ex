@@ -71,8 +71,10 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   end
 end
 
-defimpl Binary.Inspect, for: Cauldron.HTTP.Request do
+defimpl Inspect, for: Cauldron.HTTP.Request do
+  import Inspect.Algebra
+
   def inspect(request, _opts) do
-    "#Cauldron.Request<#{request.method} #{request.uri} #{inspect request.headers}>"
+    concat ["#Cauldron.Request<", request.method, " ", request.uri, " ", inspect(request.headers), ">"]
   end
 end

@@ -155,8 +155,10 @@ defimpl Binary.Chars, for: Cauldron.HTTP.Headers do
   end
 end
 
-defimpl Binary.Inspect, for: Cauldron.HTTP.Headers do
+defimpl Inspect, for: Cauldron.HTTP.Headers do
+  import Inspect.Algebra
+
   def inspect(headers, opts) do
-    "#Cauldron.HTTP.Headers<" <> Kernel.inspect(Data.to_list(headers), opts) <> ">"
+    concat ["#Cauldron.HTTP.Headers<", Kernel.inspect(Data.to_list(headers), opts), ">"]
   end
 end
