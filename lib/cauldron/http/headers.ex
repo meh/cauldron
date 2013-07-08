@@ -9,7 +9,7 @@
 defmodule Cauldron.HTTP.Headers do
   alias Cauldron.Utils
 
-  defrecordp :headers, list: []
+  defrecordp :headers, __MODULE__, list: []
 
   def new do
     headers(list: [])
