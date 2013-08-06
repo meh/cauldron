@@ -39,6 +39,9 @@ defmodule Cauldron.HTTP do
 
   @doc false
   def handler(connection, module) when is_atom module do
+    if {:unix, :darwin} = :os.type do
+      connection.socket.options(recv: [buffer: 10240])
+    end
     handler(connection, function(module, :handle, 3))
   end
 
