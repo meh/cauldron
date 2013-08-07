@@ -39,7 +39,7 @@ defmodule Cauldron.HTTP do
 
   @doc false
   def handler(connection, module) when is_atom module do
-    handler(connection, function(module, :handle, 3))
+    handler(connection, &module.handle/3)
   end
 
   def handler(connection, fun) do
