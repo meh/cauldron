@@ -39,11 +39,11 @@ defmodule Cauldron do
     def cert(Listener[secure: sec]), do: sec[:cert]
 
     def to_options(Listener[backlog: backlog, secure: nil]) do
-      [backlog: backlog, automatic: false]
+      [backlog: backlog, buffer: 4 * 1024 * 1024, automatic: false]
     end
 
     def to_options(Listener[backlog: backlog, secure: secure]) do
-      Keyword.merge(secure, [backlog: backlog, automatic: false,
+      Keyword.merge(secure, [backlog: backlog, buffer: 4 * 1024 * 1024, automatic: false,
         advertisted_protocols: ["spdy/2", "spdy/3", "http/1.0", "http/1.1"]])
     end
   end
