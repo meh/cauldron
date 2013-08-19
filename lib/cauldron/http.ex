@@ -236,10 +236,21 @@ defmodule Cauldron.HTTP do
                 host      = "localhost"
               end
 
+              if auth = Dict.get(headers, "Authorization") do
+                case auth do
+                  "Basic " <> rest ->
+                    userinfo = :base64.decode(rest)
+
+                  _ ->
+                    userinfo = nil
+                end
+              end
+
               URI.Info[ scheme:    if(connection.secure?, do: "https", else: "http"),
                         authority: authority,
                         host:      host,
                         port:      port,
+                        userinfo:  userinfo,
                         path:      path,
                         query:     query,
                         fragment:  fragment ]
