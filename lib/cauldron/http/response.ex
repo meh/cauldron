@@ -9,9 +9,14 @@
 defrecord Cauldron.HTTP.Response, request: nil do
   alias __MODULE__, as: Res
   alias Cauldron.HTTP.Request, as: Req
+  alias Cauldron.HTTP.Headers
   alias Cauldron.Connection
   alias Cauldron.Listener
 
+  @doc """
+  Send the HTTP status.
+  """
+  @spec status(integer | { integer, String.t }, t) :: t
   def status(code, self) when is_integer(code) do
     status({ code, text_for(code) }, self)
   end
@@ -22,6 +27,10 @@ defrecord Cauldron.HTTP.Response, request: nil do
     self
   end
 
+  @doc """
+  Send the HTTP headers.
+  """
+  @spec headers(Headers.t, t) :: t
   def headers(headers, Res[request: Req[handler: handler]] = self) when is_list(headers) do
     handler <- { self, :headers, Cauldron.HTTP.Headers.from_list(headers) }
 
@@ -34,12 +43,10 @@ defrecord Cauldron.HTTP.Response, request: nil do
     self
   end
 
-  def stream(acc, fun, Res[request: Req[handler: handler]] = self) when is_function(fun) do
-    stream(self, handler, fun, acc)
-
-    self
-  end
-
+  @doc """
+  Stream a file or an IO device.
+  """
+  @spec stream(String.t | port | pid, t) :: t
   def stream(path, Res[request: Req[handler: handler]] = self) when is_binary(path) do
     unless File.exists?(path) do
       raise File.Error, reason: :enoent, action: "open", path: path
@@ -52,6 +59,16 @@ defrecord Cauldron.HTTP.Response, request: nil do
 
   def stream(io, Res[request: Req[connection: Connection[listener: Listener[chunk_size: chunk_size]], handler: handler]] = self) when is_pid(io) do
     stream(self, handler, io, chunk_size)
+
+    self
+  end
+
+  @doc """
+  Stream a response body with a generator function.
+  """
+  @spec stream(term, (term -> { iolist, term })) :: t
+  def stream(acc, fun, Res[request: Req[handler: handler]] = self) when is_function(fun) do
+    stream(self, handler, fun, acc)
 
     self
   end
@@ -80,12 +97,19 @@ defrecord Cauldron.HTTP.Response, request: nil do
     end
   end
 
+  @doc """
+  Send the passed binary as body.
+  """
+  @spec body(iolist, t) :: t
   def body(body, Res[request: Req[handler: handler]] = self) do
     handler <- { self, :body, body }
 
     self
   end
 
+  @doc """
+  Send a chunk.
+  """
   def send(chunk, Res[request: Req[handler: handler]] = self) do
     handler <- { self, :chunk, chunk }
 
