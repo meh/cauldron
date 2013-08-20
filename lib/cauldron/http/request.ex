@@ -15,11 +15,21 @@ defrecord Cauldron.HTTP.Request, connection: nil,
                                  headers: nil do
   alias __MODULE__, as: Req
   alias Cauldron.HTTP.Response, as: Res
+  alias Cauldron.HTTP.Headers
 
+  @doc """
+  Check if the request is the last in the pipeline.
+  """
+  @spec last?(t) :: boolean
   def last?(Req[headers: headers]) do
     headers["Connection"] == nil or headers["Connection"] == "close"
   end
 
+  @doc """
+  Read a chunk from the request body, chunks are split respecting the
+  `chunk_size` option of the listener.
+  """
+  @spec read(t) :: binary
   def read(Req[handler: handler] = self) do
     handler <- { self, Kernel.self, :read, :chunk }
 
@@ -29,6 +39,10 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     end
   end
 
+  @doc """
+  Fetch the whole body from the request, or the rest if you used `read` before.
+  """
+  @spec body(t) :: binary
   def body(Req[handler: handler] = self) do
     handler <- { self, Kernel.self, :read, :all }
 
@@ -48,10 +62,19 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     body
   end
 
+  @doc """
+  Create a response for the request, it is not sent to allow for more
+  fine-grained responses.
+  """
+  @spec reply(t) :: Res.t
   def reply(self) do
     Res.new(request: self)
   end
 
+  @doc """
+  Respond to the request sending a file or with just the response code.
+  """
+  @spec reply(String.t | integer, t) :: none
   def reply(path, self) when is_binary(path) do
     reply(self).status(200).headers([]).stream(path)
   end
@@ -60,6 +83,11 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     reply(self).status(code).headers([]).body("")
   end
 
+  @doc """
+  Respond to the request with the given code and body or with the given code
+  and IO handle.
+  """
+  @spec reply(integer, io | iolist, t) :: none
   def reply(code, io, self) when is_pid(io) do
     reply(self).status(code).headers([]).stream(io)
   end
@@ -68,6 +96,11 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     reply(self).status(code).headers([]).body(body)
   end
 
+  @doc """
+  Respond to the request with the given code, headers and body or with the
+  given code and and generator function.
+  """
+  @spec reply(integer, Headers.t | term, iolist | (term -> { iolist, term }), t) :: none
   def reply(code, acc, fun, self) when is_function(fun) do
     reply(self).status(code).headers([]).stream(acc, fun)
   end
@@ -76,6 +109,10 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     reply(self).status(code).headers(headers).body(body)
   end
 
+  @doc """
+  Respond to the request with the given code, headers and generator function.
+  """
+  @spec reply(integer, Headers.t, term, (term -> { iolist, term }), t) :: none
   def reply(code, headers, acc, fun, self) when is_function(fun) do
     reply(self).status(code).headers(headers).stream(acc, fun)
   end
