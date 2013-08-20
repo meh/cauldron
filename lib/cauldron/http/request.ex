@@ -32,10 +32,20 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   def body(Req[handler: handler] = self) do
     handler <- { self, Kernel.self, :read, :all }
 
-    receive do
+    body = receive do
+      { :read, nil } ->
+        receive do
+          { :cached, body }
+            body
+        end
+
       { :read, body } ->
         body
     end
+
+    Process.self <- { :cached, body }
+
+    body
   end
 
   def reply(self) do
