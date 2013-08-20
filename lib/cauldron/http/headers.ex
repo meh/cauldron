@@ -9,6 +9,8 @@
 defmodule Cauldron.HTTP.Headers do
   alias Cauldron.Utils
 
+  @type t :: Keyword.t | record
+
   defrecordp :headers, __MODULE__, list: []
 
   def new do
