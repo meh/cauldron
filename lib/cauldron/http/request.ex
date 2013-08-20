@@ -87,8 +87,8 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   Respond to the request with the given code and body or with the given code
   and IO handle.
   """
-  @spec reply(integer, io | iolist, t) :: none
-  def reply(code, io, self) when is_pid(io) do
+  @spec reply(integer | { integer, String.t }, :io.device | iolist, t) :: none
+  def reply(code, io, self) when is_pid(io) or is_port(io) do
     reply(self).status(code).headers([]).stream(io)
   end
 

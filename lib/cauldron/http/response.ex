@@ -46,7 +46,7 @@ defrecord Cauldron.HTTP.Response, request: nil do
   @doc """
   Stream a file or an IO device.
   """
-  @spec stream(String.t | port | pid, t) :: t
+  @spec stream(String.t | :io.device, t) :: t
   def stream(path, Res[request: Req[handler: handler]] = self) when is_binary(path) do
     unless File.exists?(path) do
       raise File.Error, reason: :enoent, action: "open", path: path
@@ -57,7 +57,7 @@ defrecord Cauldron.HTTP.Response, request: nil do
     self
   end
 
-  def stream(io, Res[request: Req[connection: Connection[listener: Listener[chunk_size: chunk_size]], handler: handler]] = self) when is_pid(io) do
+  def stream(io, Res[request: Req[connection: Connection[listener: Listener[chunk_size: chunk_size]], handler: handler]] = self) when is_pid(io) or is_port(io) do
     stream(self, handler, io, chunk_size)
 
     self
