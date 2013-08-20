@@ -20,7 +20,7 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     headers["Connection"] == nil or headers["Connection"] == "close"
   end
 
-  def recv(Req[handler: handler] = self) do
+  def read(Req[handler: handler] = self) do
     handler <- { self, Kernel.self, :read, :chunk }
 
     receive do
