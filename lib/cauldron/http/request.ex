@@ -49,7 +49,7 @@ defrecord Cauldron.HTTP.Request, connection: nil,
     body = receive do
       { :read, nil } ->
         receive do
-          { :cached, body }
+          { :cached, body } ->
             body
         end
 
