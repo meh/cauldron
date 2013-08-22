@@ -149,8 +149,8 @@ defimpl Access, for: Cauldron.HTTP.Headers do
   defdelegate access(self, key), to: Cauldron.HTTP.Headers, as: :get
 end
 
-defimpl Binary.Chars, for: Cauldron.HTTP.Headers do
-  def to_binary(headers) do
+defimpl String.Chars, for: Cauldron.HTTP.Headers do
+  def to_string(headers) do
     Enum.join(lc { key, value } inlist Dict.to_list(headers) do
       "#{key}: #{value}"
     end, "\r\n")

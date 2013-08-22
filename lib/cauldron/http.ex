@@ -482,7 +482,7 @@ defmodule Cauldron.HTTP do
 
   defp write_headers(socket, headers) do
     Seq.each headers, fn { name, value } ->
-      socket.send! [name, ": ", to_binary(value), "\r\n"]
+      socket.send! [name, ": ", to_string(value), "\r\n"]
     end
 
     socket.send! "\r\n"
