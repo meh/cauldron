@@ -17,7 +17,7 @@ end
 
 # open the cauldron on port 8080, you can have multiple listeners using the
 # same module
-Caulron.open Foo, listen: [[port: 8080]]
+Cauldron.open Foo, listen: [[port: 8080]]
 ```
 
 Why?
