@@ -122,6 +122,6 @@ defimpl Inspect, for: Cauldron.HTTP.Request do
   import Inspect.Algebra
 
   def inspect(request, _opts) do
-    concat ["#Cauldron.Request<", request.method, " ", request.uri, " ", inspect(request.headers), ">"]
+    concat ["#Cauldron.Request<", to_string(request.method), " ", to_string(request.uri), ">"]
   end
 end
