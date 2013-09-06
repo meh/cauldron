@@ -174,3 +174,11 @@ defrecord Cauldron.HTTP.Response, request: nil do
   defp text_for(510), do: "Not Extended"
   defp text_for(511), do: "Network Authentication Required"
 end
+
+defimpl Inspect, for: Cauldron.HTTP.Response do
+  import Inspect.Algebra
+
+  def inspect(response, _opts) do
+    concat ["#Cauldron.Response<", to_string(response.request.method), " ", to_string(response.request.uri), ">"]
+  end
+end
