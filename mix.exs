@@ -17,7 +17,7 @@ defmodule Cauldron.Mixfile do
   # { :foobar, "0.1", git: "https://github.com/elixir-lang/foobar.git" }
   defp deps do
     [ { :datastructures, github: "meh/elixir-datastructures" },
-      { :socket, github: "meh/elixir-socket" },
+      { :reagent, github: "meh/reagent" },
       { :derp, github: "meh/derp" } ]
   end
 end

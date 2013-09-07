@@ -10,8 +10,8 @@ defrecord Cauldron.HTTP.Response, request: nil do
   alias __MODULE__, as: Res
   alias Cauldron.HTTP.Request, as: Req
   alias Cauldron.HTTP.Headers
-  alias Cauldron.Connection
-  alias Cauldron.Listener
+
+  @chunk_size 4096
 
   @doc """
   Send the HTTP status.
@@ -22,7 +22,7 @@ defrecord Cauldron.HTTP.Response, request: nil do
   end
 
   def status({ code, text }, Res[request: Req[handler: handler]] = self) when is_integer(code) and is_binary(text) do
-    handler <- { self, :status, code, text }
+    :gen_server.cast handler, { self, :status, code, text }
 
     self
   end
@@ -32,13 +32,13 @@ defrecord Cauldron.HTTP.Response, request: nil do
   """
   @spec headers(Headers.t, t) :: t
   def headers(headers, Res[request: Req[handler: handler]] = self) when is_list(headers) do
-    handler <- { self, :headers, Cauldron.HTTP.Headers.from_list(headers) }
+    :gen_server.cast handler, { self, :headers, Headers.from_list(headers) }
 
     self
   end
 
   def headers(headers, Res[request: Req[handler: handler]] = self) do
-    handler <- { self, :headers, headers }
+    :gen_server.cast handler, { self, :headers, headers }
 
     self
   end
@@ -52,13 +52,13 @@ defrecord Cauldron.HTTP.Response, request: nil do
       raise File.Error, reason: :enoent, action: "open", path: path
     end
 
-    handler <- { self, :stream, path }
+    :gen_server.cast handler, { self, :stream, path }
 
     self
   end
 
-  def stream(io, Res[request: Req[connection: Connection[listener: Listener[chunk_size: chunk_size]], handler: handler]] = self) when is_pid(io) or is_port(io) do
-    stream(self, handler, io, chunk_size)
+  def stream(io, Res[request: Req[handler: handler]] = self) when is_pid(io) or is_port(io) do
+    stream(self, handler, io, @chunk_size)
 
     self
   end
@@ -76,10 +76,10 @@ defrecord Cauldron.HTTP.Response, request: nil do
   defp stream(self, handler, fun, acc) when is_function(fun) do
     case fun.(acc) do
       :eof ->
-        handler <- { self, :chunk, nil }
+        :gen_server.cast handler, { self, :chunk, nil }
 
       { data, acc } ->
-        handler <- { self, :chunk, data }
+        :gen_server.cast handler, { self, :chunk, data }
 
         stream(self, handler, fun, acc)
     end
@@ -88,10 +88,10 @@ defrecord Cauldron.HTTP.Response, request: nil do
   defp stream(self, handler, io, chunk_size) do
     case IO.binread(io, chunk_size) do
       :eof ->
-        handler <- { self, :chunk, nil }
+        :gen_server.cast handler, { self, :chunk, nil }
 
       data ->
-        handler <- { self, :chunk, data }
+        :gen_server.cast handler, { self, :chunk, data }
 
         stream(self, handler, io, chunk_size)
     end
@@ -102,7 +102,7 @@ defrecord Cauldron.HTTP.Response, request: nil do
   """
   @spec body(iolist, t) :: t
   def body(body, Res[request: Req[handler: handler]] = self) do
-    handler <- { self, :body, body }
+    :gen_server.cast handler, { self, :body, body }
 
     self
   end
@@ -111,7 +111,7 @@ defrecord Cauldron.HTTP.Response, request: nil do
   Send a chunk.
   """
   def send(chunk, Res[request: Req[handler: handler]] = self) do
-    handler <- { self, :chunk, chunk }
+    :gen_server.cast handler, { self, :chunk, chunk }
 
     self
   end

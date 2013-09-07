@@ -7,495 +7,300 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defmodule Cauldron.HTTP do
-  @moduledoc """
+  @doc false
+  def start(version, connection, callback) do
+    if callback |> is_atom do
+      callback = &callback.handle/3
+    end
 
-                 +------------+
-                 | Connection |
-                 +------------+
-                       |
-  +--------+      +---------+      +--------+
-  | Writer |<---->| Handler |<---->| Reader |
-  +--------+      +---------+      +--------+
-                     ^   ^
-                     |   |
-    +----------+     |   |     +----------+
-    | Callback |<----+   +---->| Callback |
-    +----------+               +----------+
+    { :ok, Process.spawn(__MODULE__, :init, [version, connection, callback]) }
+  end
 
-  """
-
-  alias Cauldron.Connection
-  alias Cauldron.Listener
   alias Cauldron.Utils
-
-  alias Cauldron.HTTP.Headers, as: H
-  alias Cauldron.HTTP.Request, as: Req
-  alias Cauldron.HTTP.Response, as: Res
 
   alias Data.Dict
   alias Data.Seq
 
-  def start(connection, callback) do
-    { :ok, Process.spawn(__MODULE__, :handler, [connection, callback]) }
+  alias Cauldron.HTTP.Headers
+  alias Cauldron.HTTP.Request
+  alias Cauldron.HTTP.Response
+
+  def init(version, connection, callback) do
+    Process.flag :trap_exit, true
+    Reagent.wait
+
+    :fprof.trace(:start)
+
+    run(version, connection, callback)
   end
 
-  defrecordp :state, request: nil, no_more_input: false
+  def run(version, connection, callback) do
+    { method, path, version } = request(connection)
+    headers                   = headers(connection)
+    uri                       = create_uri(path, connection, headers)
+    request                   = Request[
+        connection: connection,
+        handler:    Process.self,
+        id:         0,
+        method:     method,
+        uri:        uri,
+        version:    version,
+        headers:    headers ]
 
-  @doc false
-  def handler(connection, module) when is_atom module do
-    handler(connection, &module.handle/3)
-  end
+    Process.spawn_link fn ->
+      callback.(method, uri, request)
+    end
 
-  def handler(connection, fun) do
-    Process.flag(:trap_exit, true)
+    handler(request)
 
-    writer = Process.spawn_link __MODULE__, :writer, [Kernel.self, connection]
-    reader = Process.spawn_link __MODULE__, :reader, [Kernel.self, connection]
-
-    handler(connection, writer, reader, fun, HashDict.new)
-  end
-
-  defp handler(Connection[socket: socket, listener: Listener[debug: debug]] = connection, writer, reader, fun, requests) do
-    receive do
-      Req[method: method, uri: uri, id: id] = request ->
-        pid = Process.spawn_link fn ->
-          fun.(method, uri, request)
-        end
-
-        handler(connection, writer, reader, fun, requests
-          |> Dict.put(pid, request)
-          |> Dict.put(id, state(request: request)))
-
-      { Req[id: id], _, :read, :discard } ->
-        discard_body(id)
-
-        handler(connection, writer, reader, fun, requests)
-
-      { Req[id: id], pid, :read, :chunk } ->
-        state = Dict.get(requests, id)
-
-        if state(state, :no_more_input) do
-          pid <- { :read, nil }
-        else
-          # we can block here given if there's still input a new request hasn't
-          # come in yet, and there's no reason to be writing while a chunk is
-          # being read
-          receive do
-            { ^id, :input, nil } ->
-              state = state(state, no_more_input: true)
-              pid <- { :read, nil }
-
-            { ^id, :input, chunk } ->
-              pid <- { :read, chunk }
-          end
-        end
-
-        handler(connection, writer, reader, fun, Dict.put(requests, id, state))
-
-      { Req[id: id], pid, :read, :all } ->
-        state = Dict.get(requests, id)
-
-        if state(state, :no_more_input) do
-          pid <- { :read, nil }
-        else
-          pid <- { :read, read_rest(id) }
-
-          state = state(state, no_more_input: true)
-        end
-
-        handler(connection, writer, reader, fun, Dict.put(requests, id, state))
-
-      { Res[request: Req[id: id, version: version]], :status, code, text }  ->
-        writer <- { id, :status, version, code, text }
-
-        handler(connection, writer, reader, fun, requests)
-
-      { Res[request: Req[id: id]], :headers, headers } ->
-        writer <- { id, :headers, headers }
-
-        handler(connection, writer, reader, fun, requests)
-
-      { Res[request: Req[id: id]], :body, body } ->
-        discard_if(Dict.get(requests, id), id)
-        writer <- { id, :body, body }
-
-        handler(connection, writer, reader, fun, requests)
-
-      { Res[request: Req[id: id]], :chunk, nil } ->
-        discard_if(Dict.get(requests, id), id)
-        writer <- { id, :chunk, nil }
-
-        handler(connection, writer, reader, fun, requests)
-
-      { Res[request: Req[id: id]], :chunk, chunk } ->
-        writer <- { id, :chunk, chunk }
-
-        handler(connection, writer, reader, fun, requests)
-
-      { Res[request: Req[id: id]], :stream, path } ->
-        socket |> Socket.process!(writer)
-        writer <- { id, :stream, path }
-
-        handler(connection, writer, reader, fun, requests)
-
-      { id, :done } ->
-        state = Dict.get(requests, id)
-
-        if state(state, :request).last? do
-          socket |> Socket.Stream.shutdown
-
-          Process.exit(writer, :kill)
-          Process.exit(reader, :kill)
-        else
-          handler(connection, writer, reader, fun, Dict.delete(requests, id))
-        end
-
-      # reader or writer died
-      { :EXIT, pid, _reason } when pid in [writer, reader] ->
-        case Process.info(Kernel.self, :links) do
-          { :links, links } ->
-            Enum.each links, Process.exit(&1, :aborted)
-
-          _ ->
-            nil
-        end
-
-      # a callback process ended
-      { :EXIT, pid, :normal } ->
-        handler(connection, writer, reader, fun, Dict.delete(requests, pid))
-
-      # a callback process errored
-      { :EXIT, pid, reason } ->
-        Req[id: id] = request = Dict.get(requests, pid)
-
-        if Data.contains?(requests, id) do
-          if debug do
-            request.reply(500, inspect(reason))
-          else
-            request.reply(500)
-          end
-        end
-
-        handler(connection, writer, reader, fun, Dict.delete(requests, pid))
+    unless request.last? do
+      run(version, connection, callback)
     end
   end
 
-  defp discard_if(state, id) do
-    unless state(state, :no_more_input) do
-      discard_body(id)
+  defp request(connection) do
+    connection |> Socket.packet! :http_bin
+
+    case connection |> Socket.Stream.recv! do
+      { :http_request, method, path, version } ->
+        { method |> to_string |> Utils.upcase, path, version }
     end
-  end
-
-  defp discard_body(id) do
-    receive do
-      { ^id, :input, nil } ->
-        nil
-
-      { ^id, :input, _ } ->
-        discard_body(id)
-    end
-  end
-
-  defp read_rest(id) do
-    case read_rest([], id) do
-      [] ->
-        nil
-
-      result ->
-        iolist_to_binary(result)
-    end
-  end
-
-  defp read_rest(acc, id) do
-    receive do
-      { ^id, :input, nil } ->
-        acc
-
-      { ^id, :input, chunk } ->
-        read_rest([acc | chunk], id)
-    end
-  end
-
-  @doc false
-  def reader(handler, connection) do
-    reader(handler, connection, 0)
-  end
-
-  defp reader(handler, Connection[socket: socket, listener: Listener[port: port, chunk_size: chunk_size]] = connection, id) do
-    socket |> Socket.packet!(:http_bin)
-
-    case request(connection) do
-      { method, path, version } ->
-        if headers = headers(connection) do
-          uri = case path do
-            { :abs_path, path } ->
-              { path, query, fragment } = split(path)
-
-              if authority = Dict.get(headers, "Host") do
-                destructure [host, port], String.split(authority, ":", global: false)
-
-                port = binary_to_integer(port || "80")
-              else
-                authority = "localhost:#{port}"
-                host      = "localhost"
-              end
-
-              if auth = Dict.get(headers, "Authorization") do
-                case auth do
-                  "Basic " <> rest ->
-                    userinfo = :base64.decode(rest)
-
-                  _ ->
-                    userinfo = nil
-                end
-              end
-
-              URI.Info[ scheme:    if(connection.secure?, do: "https", else: "http"),
-                        authority: authority,
-                        host:      host,
-                        port:      port,
-                        userinfo:  userinfo,
-                        path:      path,
-                        query:     query,
-                        fragment:  fragment ]
-
-            { :absoluteURI, scheme, host, port, path } ->
-              { path, query, fragment } = split(path)
-
-              port = case port do
-                :undefined ->
-                  if scheme == :http do
-                    80
-                  else
-                    443
-                  end
-
-                port ->
-                  port
-              end
-
-              URI.Info[ scheme:    atom_to_binary(scheme),
-                        authority: "#{host}:#{port}",
-                        host:      host,
-                        port:      port,
-                        path:      path,
-                        query:     query,
-                        fragment:  fragment ]
-
-            { :scheme, host, port } ->
-              URI.Info[ host: host,
-                        port: binary_to_integer(port) ]
-
-            path when is_binary(path) ->
-              path
-          end
-
-          request = Req[ connection: connection,
-                         handler:    handler,
-                         id:         id,
-                         method:     method,
-                         uri:        uri,
-                         version:    version,
-                         headers:    headers ]
-
-          handler <- request
-
-          socket |> Socket.packet!(:raw)
-
-          cond do
-            length = H.get(headers, "Content-Length") ->
-              read_body(handler, id, socket, chunk_size, length)
-
-            H.get(headers, "Transfer-Encoding") == "chunked" ->
-              read_body(handler, id, socket, chunk_size)
-
-            true ->
-              no_body(handler, id)
-          end
-
-          reader(handler, connection, id + 1)
-        end
-
-      _ ->
-        nil
-    end
-  end
-
-  defp request(Connection[socket: socket]) do
-    case socket |> Socket.Stream.recv do
-      { :ok, { :http_request, method, uri, version } } ->
-        if is_atom(method) do
-          method = atom_to_binary(method)
-        else
-          method = Utils.upcase(method)
-        end
-
-        { method, uri, version }
-
-      { :ok, { :http_error, _ } } ->
-        nil
-
-      { :ok, nil } ->
-        nil
-
-      { :error, :einval } ->
-        nil
-    end
-  end
-
-  defp split(path) do
-    destructure [path, fragment], String.split(path, "#", global: false)
-    destructure [path, query], String.split(path, "?", global: false)
-
-    { path, query, fragment }
   end
 
   defp headers(connection) do
-    case headers([], connection) do
-      nil ->
-        nil
-
-      list ->
-        H.from_list(list)
-    end
+    headers([], connection) |> Enum.reverse |> Headers.from_list
   end
 
-  defp headers(acc, Connection[socket: socket] = connection) do
-    case socket |> Socket.Stream.recv do
-      { :ok, { :http_header, _, name, _, value } } ->
-        [{ name, value } | acc] |> headers(connection)
-
-      { :ok, :http_eoh } ->
+  defp headers(acc, connection) do
+    case connection |> Socket.Stream.recv! do
+      :http_eoh ->
         acc
 
-      { :ok, nil } ->
-        nil
-
-      { :error, :einval } ->
-        nil
+      { :http_header, _, name, _, value } ->
+        [{ name, value } | acc] |> headers(connection)
     end
   end
 
-  defp read_body(handler, id, _, _, 0) do
-    no_body(handler, id)
+  defp create_uri({ :abs_path, path }, connection, headers) do
+    destructure [path, fragment], String.split(path, "#", global: false)
+    destructure [path, query], String.split(path, "?", global: false)
+
+    if authority = Dict.get(headers, "Host") do
+      destructure [host, port], String.split(authority, ":", global: false)
+
+      port = binary_to_integer(port || "80")
+    else
+      authority = "localhost:#{connection.port}"
+      host      = "localhost"
+    end
+
+    if auth = Dict.get(headers, "Authorization") do
+      case auth do
+        "Basic " <> rest ->
+          userinfo = :base64.decode(rest)
+
+        _ ->
+          userinfo = nil
+      end
+    end
+
+    URI.Info[ scheme:    if(connection.secure?, do: "https", else: "http"),
+              authority: authority,
+              host:      host,
+              port:      port,
+              userinfo:  userinfo,
+              path:      path,
+              query:     query,
+              fragment:  fragment ]
   end
 
-  defp read_body(handler, id, socket, chunk_size, length) when length <= chunk_size do
-    handler <- { id, :input, socket |> Socket.Stream.recv!(length) }
+  defp create_uri({ :absoluteURI, scheme, host, port, path }, _connection, _headers) do
+    destructure [path, fragment], String.split(path, "#", global: false)
+    destructure [path, query], String.split(path, "?", global: false)
 
-    read_body(handler, id, socket, chunk_size, 0)
+    port = case port do
+      :undefined ->
+        if scheme == :http do
+          80
+        else
+          443
+        end
+
+      port ->
+        port
+    end
+
+    URI.Info[ scheme:    atom_to_binary(scheme),
+              authority: "#{host}:#{port}",
+              host:      host,
+              port:      port,
+              path:      path,
+              query:     query,
+              fragment:  fragment ]
   end
 
-  defp read_body(handler, id, socket, chunk_size, length) do
-    handler <- { :input, socket |> Socket.Stream.recv!(chunk_size) }
-
-    read_body(handler, id, chunk_size, length - chunk_size)
+  defp create_uri({ :scheme, host, port }, _connection, _headers) do
+    URI.Info[ host: host,
+              port: binary_to_integer(port) ]
   end
 
-  defp read_body(_handler, _id, _socket, _chunk_size) do
-    throw :unimplemented
+  defp create_uri(path, _connection, _headers) when path |> is_binary do
+    path
   end
 
-  defp no_body(handler, id) do
-    handler <- { id, :input, nil }
+  defp handler(request) do
+    handler(request, nil, nil)
   end
 
-  @doc false
-  def writer(handler, connection) do
-    writer(handler, connection, 0, nil)
-  end
-
-  defp writer(handler, Connection[socket: socket] = connection, id, headers) do
+  defp handler(Request[connection: connection] = request, headers, body) do
     receive do
-      { ^id, :status, { major, minor }, code, text } ->
-        socket |> Socket.Stream.send! ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
+      { :EXIT, _pid, :normal } ->
+        handler(request, headers, body)
 
-        writer(handler, connection, id, headers)
+      { :EXIT, _pid, reason } ->
+        :error_logger.error_report(reason)
+        request.reply(500)
 
-      { ^id, :headers, headers } ->
-        writer(handler, connection, id, headers)
+        handler(request, headers, body)
 
-      { ^id, :body, body } ->
-        if headers do
-          if Req[headers: headers].last? do
-            headers = H.put(headers, "Connection", "close")
-          end
-
-          headers = H.put(headers, "Content-Length", iolist_size(body))
-
-          write_headers(socket, headers)
+      { :"$gen_call", { pid, ref }, { Request[headers: headers], :read, :all } } ->
+        unless body do
+          body = read_body(connection, headers)
         end
 
-        socket |> Socket.Stream.send!(iolist_to_binary(body))
+        pid <- { ref, body }
 
-        handler <- { id, :done }
+        handler(request, headers, body)
 
-        writer(handler, connection, id + 1, nil)
+      { :"$gen_cast", { Response[request: Request[version: version]], :status, code, text } } ->
+        write_status(connection, version, code, text)
 
-      { ^id, :chunk, nil } ->
-        if headers do
-          if Req[headers: headers].last? do
-            headers = H.put(headers, "Connection", "close")
-          end
+        handler(request, nil, body)
 
-          headers = H.put(headers, "Transfer-Encoding", "chunked")
+      { :"$gen_cast", { Response[], :headers, headers } } ->
+        handler(request, headers, body)
 
-          write_headers(socket, headers)
+      { :"$gen_cast", { Response[], :body, body } } ->
+        if Request[headers: headers].last? do
+          headers = headers |> Dict.put("Connection", "close")
         end
 
-        socket |> Socket.Stream.send!("0\r\n\r\n")
+        headers = headers |> Dict.put("Content-Length", iolist_size(body))
 
-        handler <- { id, :done }
+        write_headers(connection, headers)
+        write_body(connection, body)
 
-        writer(handler, connection, id + 1, nil)
-
-      { ^id, :chunk, chunk } ->
-        if headers do
-          if Req[headers: headers].last? do
-            headers = H.put(headers, "Connection", "close")
-          end
-
-          headers = H.put(headers, "Transfer-Encoding", "chunked")
-
-          write_headers(socket, headers)
+      { :"$gen_cast", { Response[], :stream, path } } ->
+        if Request[headers: headers].last? do
+          headers = headers |> Dict.put("Connection", "close")
         end
 
-        write_chunk(socket, chunk)
+        headers = headers |> Dict.put("Content-Length", File.stat!(path).size)
 
-        writer(handler, connection, id, nil)
+        write_headers(connection, headers)
+        write_file(connection, path)
 
-      { ^id, :stream, path } ->
+      { :"$gen_cast", { Response[], :chunk, chunk } } ->
         if headers do
-          if Req[headers: headers].last? do
-            headers = H.put(headers, "Connection", "close")
+          if Request[headers: headers].last? do
+            headers = headers |> Dict.put("Connection", "close")
           end
 
-          headers = H.put(headers, "Content-Length", File.stat!(path).size)
+          headers = headers |> Dict.put("Transfer-Encoding", "chunked")
 
-          write_headers(socket, headers)
+          write_headers(connection, headers)
         end
 
-        { :ok, _ } = :file.sendfile(path, socket.to_port)
-        socket |> Socket.process!(handler)
+        write_chunk(connection, chunk)
 
-        handler <- { id, :done }
+        unless chunk == nil do
+          handler(request, nil, body)
+        end
 
-        writer(handler, connection, id, nil)
+      v ->
+        IO.inspect v
+
+        handler(request, headers, body)
     end
   end
 
-  defp write_headers(socket, headers) do
+  defp read_body(connection, headers) do
+    cond do
+      length = headers |> Dict.get("Content-Length") ->
+        connection |> Socket.packet! :raw
+        connection |> Socket.Stream.recv!(length)
+
+      headers |> Dict.get("Transfer-Encoding") == "chunked" ->
+        read_chunks(connection)
+
+      true ->
+        nil
+    end
+  end
+
+  defp read_chunks(connection) do
+    read_chunks([], connection) |> Seq.reverse |> iolist_to_binary
+  end
+
+  defp read_chunks(acc, connection) do
+    case read_chunk(connection) do
+      nil ->
+        acc
+
+      chunk ->
+        [chunk | acc] |> read_chunks(connection)
+    end
+  end
+
+  defp read_chunk(connection) do
+    connection |> Socket.packet! :line
+
+    case connection |> Socket.Stream.recv! |> String.rstrip |> binary_to_integer(16) do
+      0 ->
+        connection |> Socket.Stream.recv!
+        nil
+
+      size ->
+        connection |> Socket.packet! :raw
+        res = connection |> Socket.Stream.recv!(size)
+        connection |> Socket.packet! :line
+        connection |> Socket.Stream.recv!
+        res
+    end
+  end
+
+  defp write_status(connection, { major, minor }, code, text) do
+    connection |> Socket.Stream.send! [
+      "HTTP/", "#{major}.#{minor}", " ",
+      integer_to_binary(code), " ",
+      text, "\r\n"
+    ]
+  end
+
+  defp write_headers(connection, headers) do
     Seq.each headers, fn { name, value } ->
-      socket |> Socket.Stream.send! [name, ": ", to_string(value), "\r\n"]
+      connection |> Socket.Stream.send! [name, ": ", to_string(value), "\r\n"]
     end
 
-    socket |> Socket.Stream.send! "\r\n"
+    connection |> Socket.Stream.send! "\r\n"
   end
 
-  defp write_chunk(socket, chunk) do
-    socket |> Socket.Stream.send!([
+  defp write_body(connection, body) do
+    connection |> Socket.Stream.send! body
+  end
+
+  defp write_file(connection, path) do
+    connection |> Socket.Stream.file!(path)
+  end
+
+  defp write_chunk(connection, nil) do
+    connection |> Socket.Stream.send! "0\r\n\r\n"
+  end
+
+  defp write_chunk(connection, chunk) do
+    connection |> Socket.Stream.send! [
       :io_lib.format("~.16b", [iolist_size(chunk)]), "\r\n",
       chunk, "\r\n"
-    ])
+    ]
   end
 end

@@ -145,6 +145,10 @@ defimpl Data.Listable, for: Cauldron.HTTP.Headers do
   defdelegate to_list(self), to: Cauldron.HTTP.Headers
 end
 
+defimpl Enumerable, for: Cauldron.HTTP.Headers do
+  use Data.Enumerable
+end
+
 defimpl Access, for: Cauldron.HTTP.Headers do
   defdelegate access(self, key), to: Cauldron.HTTP.Headers, as: :get
 end

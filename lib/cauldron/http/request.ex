@@ -26,17 +26,20 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   end
 
   @doc """
+  Check if the request has a body.
+  """
+  @spec has_body?(t) :: boolean
+  def has_body?(Req[headers: headers]) do
+    headers["Content-Length"] != nil or headers["Transfer-Encoding"] == "chunked"
+  end
+
+  @doc """
   Read a chunk from the request body, chunks are split respecting the
   `chunk_size` option of the listener.
   """
   @spec read(t) :: binary
-  def read(Req[handler: handler] = self) do
-    handler <- { self, Kernel.self, :read, :chunk }
-
-    receive do
-      { :read, chunk } ->
-        chunk
-    end
+  def read(Req[handler: handler] = self, size // 4096) do
+    :gen_server.call handler, { self, :read, :chunk, size }
   end
 
   @doc """
@@ -44,22 +47,7 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   """
   @spec body(t) :: binary
   def body(Req[handler: handler] = self) do
-    handler <- { self, Kernel.self, :read, :all }
-
-    body = receive do
-      { :read, nil } ->
-        receive do
-          { :cached, body } ->
-            body
-        end
-
-      { :read, body } ->
-        body
-    end
-
-    Process.self <- { :cached, body }
-
-    body
+    :gen_server.call handler, { self, :read, :all }
   end
 
   @doc """
