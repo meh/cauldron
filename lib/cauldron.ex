@@ -7,7 +7,7 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defmodule Cauldron do
-  @moduledoc %B"""
+  @moduledoc %S"""
 
         +---------+-------------+-------------+----------+
         |         |             |             |          |
@@ -58,12 +58,12 @@ defmodule Cauldron do
     end
   end
 
-  def open(what, options // []) do
-    Process.spawn __MODULE__, :monitor, [what, options]
+  def open(callback, options // []) do
+    Process.spawn __MODULE__, :monitor, [callback, options]
   end
 
   @doc false
-  def monitor(what, options) do
+  def monitor(callback, options) do
     Process.flag(:trap_exit, true)
 
     listen = Keyword.get(options, :listen, [[port: 80]])
@@ -80,7 +80,7 @@ defmodule Cauldron do
       end)
 
       Enum.each 1 .. (listener.acceptors), fn _ ->
-        Process.spawn_link __MODULE__, :acceptor, [listener, what]
+        Process.spawn_link __MODULE__, :acceptor, [listener, callback]
       end
     end
 
@@ -103,22 +103,25 @@ defmodule Cauldron do
   end
 
   @doc false
-  def acceptor(Listener[socket: socket, monitor: monitor] = listener, what) do
-    connection = Connection.new(listener: listener, socket: socket.accept!(automatic: false))
+  def acceptor(Listener[socket: socket, monitor: monitor] = listener, callback) do
+    socket     = socket |> Socket.accept!(automatic: false)
+    connection = Connection.new(listener: listener, socket: socket)
     connection = connection.protocol(if connection.secure? do
-      socket.negotiated_protocol
+      socket |> Socket.SSL.negotiated_protocol
     end || "http/?")
+
+    { :ok, process } = case connection.protocol do
+      "http/" <> _ ->
+        Cauldron.HTTP.start(connection, callback)
+
+      "spdy/" <> _ ->
+        Cauldron.SPDY.start(connection, callback)
+    end
+
+    socket |> Socket.process(process)
 
     monitor <- { connection, :connected }
 
-    connection.socket.process(case connection.protocol do
-      "http/" <> _ ->
-        Process.spawn Cauldron.HTTP, :handler, [connection, what]
-
-      "spdy/" <> _ ->
-        Process.spawn Cauldron.SPDY, :handler, [connection, what]
-    end)
-
-    acceptor(listener, what)
+    acceptor(listener, callback)
   end
 end
