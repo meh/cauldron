@@ -10,13 +10,14 @@ defmodule Cauldron.Mixfile do
 
   # Configuration for the OTP application
   def application do
-    [ applications: [:socket] ]
+    [ applications: [:socket, :derp] ]
   end
 
   # Returns the list of dependencies in the format:
   # { :foobar, "0.1", git: "https://github.com/elixir-lang/foobar.git" }
   defp deps do
     [ { :datastructures, github: "meh/elixir-datastructures" },
-      { :socket, github: "meh/elixir-socket" } ]
+      { :socket, github: "meh/elixir-socket" },
+      { :derp, github: "meh/derp" } ]
   end
 end
