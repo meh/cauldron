@@ -35,6 +35,10 @@ defmodule Cauldron.HTTP do
   alias Data.Dict
   alias Data.Seq
 
+  def start(connection, callback) do
+    { :ok, Process.spawn(__MODULE__, :handler, [connection, callback]) }
+  end
+
   defrecordp :state, request: nil, no_more_input: false
 
   @doc false
@@ -129,7 +133,7 @@ defmodule Cauldron.HTTP do
         handler(connection, writer, reader, fun, requests)
 
       { Res[request: Req[id: id]], :stream, path } ->
-        socket.process!(writer)
+        socket |> Socket.process!(writer)
         writer <- { id, :stream, path }
 
         handler(connection, writer, reader, fun, requests)
@@ -138,7 +142,7 @@ defmodule Cauldron.HTTP do
         state = Dict.get(requests, id)
 
         if state(state, :request).last? do
-          socket.shutdown
+          socket |> Socket.Stream.shutdown
 
           Process.exit(writer, :kill)
           Process.exit(reader, :kill)
@@ -218,7 +222,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp reader(handler, Connection[socket: socket, listener: Listener[port: port, chunk_size: chunk_size]] = connection, id) do
-    socket.packet!(:http_bin)
+    socket |> Socket.packet!(:http_bin)
 
     case request(connection) do
       { method, path, version } ->
@@ -296,7 +300,7 @@ defmodule Cauldron.HTTP do
 
           handler <- request
 
-          socket.packet!(:raw)
+          socket |> Socket.packet!(:raw)
 
           cond do
             length = H.get(headers, "Content-Length") ->
@@ -318,7 +322,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp request(Connection[socket: socket]) do
-    case socket.recv do
+    case socket |> Socket.Stream.recv do
       { :ok, { :http_request, method, uri, version } } ->
         if is_atom(method) do
           method = atom_to_binary(method)
@@ -357,7 +361,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp headers(acc, Connection[socket: socket] = connection) do
-    case socket.recv do
+    case socket |> Socket.Stream.recv do
       { :ok, { :http_header, _, name, _, value } } ->
         [{ name, value } | acc] |> headers(connection)
 
@@ -377,13 +381,13 @@ defmodule Cauldron.HTTP do
   end
 
   defp read_body(handler, id, socket, chunk_size, length) when length <= chunk_size do
-    handler <- { id, :input, socket.recv!(length) }
+    handler <- { id, :input, socket |> Socket.Stream.recv!(length) }
 
     read_body(handler, id, socket, chunk_size, 0)
   end
 
   defp read_body(handler, id, socket, chunk_size, length) do
-    handler <- { :input, socket.recv!(chunk_size) }
+    handler <- { :input, socket |> Socket.Stream.recv!(chunk_size) }
 
     read_body(handler, id, chunk_size, length - chunk_size)
   end
@@ -404,7 +408,7 @@ defmodule Cauldron.HTTP do
   defp writer(handler, Connection[socket: socket] = connection, id, headers) do
     receive do
       { ^id, :status, { major, minor }, code, text } ->
-        socket.send! ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
+        socket |> Socket.Stream.send! ["HTTP/", "#{major}.#{minor}", " ", integer_to_binary(code), " ", text, "\r\n"]
 
         writer(handler, connection, id, headers)
 
@@ -422,7 +426,7 @@ defmodule Cauldron.HTTP do
           write_headers(socket, headers)
         end
 
-        socket.send!(iolist_to_binary(body))
+        socket |> Socket.Stream.send!(iolist_to_binary(body))
 
         handler <- { id, :done }
 
@@ -439,7 +443,7 @@ defmodule Cauldron.HTTP do
           write_headers(socket, headers)
         end
 
-        socket.send!("0\r\n\r\n")
+        socket |> Socket.Stream.send!("0\r\n\r\n")
 
         handler <- { id, :done }
 
@@ -472,7 +476,7 @@ defmodule Cauldron.HTTP do
         end
 
         { :ok, _ } = :file.sendfile(path, socket.to_port)
-        socket.process!(handler)
+        socket |> Socket.process!(handler)
 
         handler <- { id, :done }
 
@@ -482,14 +486,16 @@ defmodule Cauldron.HTTP do
 
   defp write_headers(socket, headers) do
     Seq.each headers, fn { name, value } ->
-      socket.send! [name, ": ", to_string(value), "\r\n"]
+      socket |> Socket.Stream.send! [name, ": ", to_string(value), "\r\n"]
     end
 
-    socket.send! "\r\n"
+    socket |> Socket.Stream.send! "\r\n"
   end
 
   defp write_chunk(socket, chunk) do
-    socket.send!([:io_lib.format("~.16b", [iolist_size(chunk)]), "\r\n",
-                  chunk, "\r\n"])
+    socket |> Socket.Stream.send!([
+      :io_lib.format("~.16b", [iolist_size(chunk)]), "\r\n",
+      chunk, "\r\n"
+    ])
   end
 end
