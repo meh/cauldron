@@ -38,14 +38,15 @@ defmodule Cauldron.HTTP do
     { method, path, version } = request(connection)
     headers                   = headers(connection)
     uri                       = create_uri(path, connection, headers)
-    request                   = Request[
-        connection: connection,
-        handler:    Process.self,
-        id:         0,
-        method:     method,
-        uri:        uri,
-        version:    version,
-        headers:    headers ]
+
+    request = Request[
+      connection: connection,
+      handler:    Process.self,
+      id:         0,
+      method:     method,
+      uri:        uri,
+      version:    version,
+      headers:    headers ]
 
     Process.spawn_link fn ->
       callback.(method, uri, request)
@@ -187,20 +188,14 @@ defmodule Cauldron.HTTP do
         handler(request, headers, body)
 
       { :"$gen_cast", { Response[], :body, body } } ->
-        if Request[headers: headers].last? do
-          headers = headers |> Dict.put("Connection", "close")
-        end
-
+        headers = keep_alive(headers)
         headers = headers |> Dict.put("Content-Length", iolist_size(body))
 
         write_headers(connection, headers)
         write_body(connection, body)
 
       { :"$gen_cast", { Response[], :stream, path } } ->
-        if Request[headers: headers].last? do
-          headers = headers |> Dict.put("Connection", "close")
-        end
-
+        headers = keep_alive(headers)
         headers = headers |> Dict.put("Content-Length", File.stat!(path).size)
 
         write_headers(connection, headers)
@@ -208,10 +203,7 @@ defmodule Cauldron.HTTP do
 
       { :"$gen_cast", { Response[], :chunk, chunk } } ->
         if headers do
-          if Request[headers: headers].last? do
-            headers = headers |> Dict.put("Connection", "close")
-          end
-
+          headers = keep_alive(headers)
           headers = headers |> Dict.put("Transfer-Encoding", "chunked")
 
           write_headers(connection, headers)
@@ -227,6 +219,14 @@ defmodule Cauldron.HTTP do
         IO.inspect v
 
         handler(request, headers, body)
+    end
+  end
+
+  defp keep_alive(headers) do
+    if Request[headers: headers].last? do
+      headers |> Dict.put("Connection", "close")
+    else
+      headers |> Dict.put("Connection", "keep-alive")
     end
   end
 

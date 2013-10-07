@@ -16,13 +16,16 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   alias __MODULE__, as: Req
   alias Cauldron.HTTP.Response, as: Res
   alias Cauldron.HTTP.Headers
+  alias Cauldron.Utils
 
   @doc """
   Check if the request is the last in the pipeline.
   """
   @spec last?(t) :: boolean
   def last?(Req[headers: headers]) do
-    headers["Connection"] == nil or headers["Connection"] == "close"
+    if connection = headers["Connection"] do
+      Utils.downcase(connection) == "keep-alive"
+    end
   end
 
   @doc """
