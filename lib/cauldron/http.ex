@@ -64,6 +64,9 @@ defmodule Cauldron.HTTP do
     case connection |> Socket.Stream.recv! do
       { :http_request, method, path, version } ->
         { method |> to_string |> Utils.upcase, path, version }
+
+      nil ->
+        exit :closed
     end
   end
 
@@ -78,6 +81,9 @@ defmodule Cauldron.HTTP do
 
       { :http_header, _, name, _, value } ->
         [{ name, value } | acc] |> headers(connection)
+
+      nil ->
+        exit :closed
     end
   end
 
