@@ -188,14 +188,14 @@ defmodule Cauldron.HTTP do
         handler(request, headers, body)
 
       { :"$gen_cast", { Response[], :body, body } } ->
-        headers = keep_alive(headers)
+        headers = keep_alive(request, headers)
         headers = headers |> Dict.put("Content-Length", iolist_size(body))
 
         write_headers(connection, headers)
         write_body(connection, body)
 
       { :"$gen_cast", { Response[], :stream, path } } ->
-        headers = keep_alive(headers)
+        headers = keep_alive(request, headers)
         headers = headers |> Dict.put("Content-Length", File.stat!(path).size)
 
         write_headers(connection, headers)
@@ -203,7 +203,7 @@ defmodule Cauldron.HTTP do
 
       { :"$gen_cast", { Response[], :chunk, chunk } } ->
         if headers do
-          headers = keep_alive(headers)
+          headers = keep_alive(request, headers)
           headers = headers |> Dict.put("Transfer-Encoding", "chunked")
 
           write_headers(connection, headers)
@@ -222,8 +222,8 @@ defmodule Cauldron.HTTP do
     end
   end
 
-  defp keep_alive(headers) do
-    if Request[headers: headers].last? do
+  defp keep_alive(request, headers) do
+    if request.last? do
       headers |> Dict.put("Connection", "close")
     else
       headers |> Dict.put("Connection", "keep-alive")
