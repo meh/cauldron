@@ -24,7 +24,9 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   @spec last?(t) :: boolean
   def last?(Req[headers: headers]) do
     if connection = headers["Connection"] do
-      Utils.downcase(connection) == "keep-alive"
+      Utils.downcase(connection) != "keep-alive"
+    else
+      true
     end
   end
 
