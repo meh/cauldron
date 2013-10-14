@@ -9,7 +9,7 @@
 defmodule Cauldron do
   @options backlog: 1024,
            buffer: 16 * 1024,
-           advertisted_protocols: ["spdy/2", "spdy/3", "http/1.0", "http/1.1"]
+           advertised_protocols: ["spdy/2", "spdy/3", "http/1.0", "http/1.1"]
 
   def start(callback, listener) do
     Reagent.start __MODULE__, Keyword.merge(listener, env: callback, options: @options)
