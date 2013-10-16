@@ -19,42 +19,74 @@ defmodule Cauldron.HTTP.Headers do
 
   # TODO: coalesce multiple instances of same header
   def from_list(list) do
-    headers(list: lc { name, value } inlist list do
-      if is_atom(name) do
-        value = case name do
-          :"Content-Length" ->
-            binary_to_integer(value)
-
-          _ ->
-            value
-        end
-
-        name = atom_to_binary(name)
-
-        { Utils.downcase(name), name, value }
-      else
-        { Utils.downcase(name), name, iolist_to_binary(value) }
-      end
-    end)
+    Enum.reduce list, new, fn { name, value }, headers ->
+      put(headers, name, value)
+    end
   end
 
   def contains?(headers(list: list), key) do
     List.keymember?(list, Utils.downcase(key), 0)
   end
 
-  def get(headers(list: list), key, default // nil) do
-    case List.keyfind(list, Utils.downcase(key), 0, default) do
+  def get(self, key, default // nil)
+
+  def get(self, key, default) when key |> is_atom do
+    get(self, key |> to_string, default)
+  end
+
+  def get(headers(list: list), key, default) do
+    key = Utils.downcase(key)
+
+    case List.keyfind(list, key, 0, default) do
       { _, _, value } ->
-        value
+        case key do
+          "content-length" ->
+            binary_to_integer(value)
+
+          "accept" ->
+            String.split(value, %r/\s*,\s*/) |> Enum.map fn part ->
+              case part |> String.split(%r/\s*;\s*/) do
+                [type] ->
+                  { type, 1.0 }
+
+                [type, "q=" <> quality] ->
+                  { type, binary_to_float(quality) }
+              end
+            end
+
+          _ ->
+            value
+        end
 
       default ->
         default
     end
   end
 
-  def put(headers(list: list), key, value) do
-    headers(list: List.keystore(list, Utils.downcase(key), 0,
-      { Utils.downcase(key), key, value }))
+  def put(self, name, value) when name |> is_atom do
+    put(self, name |> to_string, value)
+  end
+
+  def put(headers(list: list), name, value) when value |> is_binary do
+    key = Utils.downcase(name)
+
+    headers(list: List.keystore(list, key, 0, { key, name, value }))
+  end
+
+  def put(headers(list: list), name, value) do
+    key   = Utils.downcase(name)
+    value = case key do
+      "content-length" ->
+        value |> to_string
+
+      "accept" ->
+        value |> Enum.map(fn
+          { name, 1.0 }     -> name
+          { name, quality } -> "#{name};q=#{quality}"
+        end) |> Enum.join(",")
+    end
+
+    headers(list: List.keystore(list, key, 0, { key, name, value }))
   end
 
   def delete(headers(list: list), key) do
@@ -65,8 +97,8 @@ defmodule Cauldron.HTTP.Headers do
     lc { _, key, _ } inlist list, do: key
   end
 
-  def values(headers(list: list)) do
-    lc { _, _, value } inlist list, do: value
+  def values(headers(list: list) = self) do
+    lc { key, _, _ } inlist list, do: get(self, key)
   end
 
   def size(headers(list: list)) do
@@ -78,8 +110,8 @@ defmodule Cauldron.HTTP.Headers do
   end
 
   def reduce(headers(list: list), acc, fun) do
-    List.foldl list, acc, fn { _, key, value }, acc ->
-      fun.({ key, value }, acc)
+    List.foldl list, acc, fn { key, name, value }, acc ->
+      fun.({ name, get(key) }, acc)
     end
   end
 
@@ -87,8 +119,8 @@ defmodule Cauldron.HTTP.Headers do
     nil
   end
 
-  def first(headers(list: [{ _, name, value } | _])) do
-    { name, value }
+  def first(headers(list: [{ _, name, value } | _]) = self) do
+    { name, get(self, name) }
   end
 
   def next(headers(list: [])) do
