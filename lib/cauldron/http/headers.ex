@@ -50,7 +50,7 @@ defmodule Cauldron.HTTP.Headers do
                   { type, 1.0 }
 
                 [type, "q=" <> quality] ->
-                  { type, binary_to_float(quality) }
+                  { type, String.to_float(quality) |> elem(0) }
               end
             end
 
