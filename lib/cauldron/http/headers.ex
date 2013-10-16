@@ -109,9 +109,9 @@ defmodule Cauldron.HTTP.Headers do
     lc { _, key, value } inlist list, do: { key, value }
   end
 
-  def reduce(headers(list: list), acc, fun) do
-    List.foldl list, acc, fn { key, name, value }, acc ->
-      fun.({ name, get(key) }, acc)
+  def reduce(headers(list: list) = self, acc, fun) do
+    List.foldl list, acc, fn { key, name, _ }, acc ->
+      fun.({ name, get(self, key) }, acc)
     end
   end
 
