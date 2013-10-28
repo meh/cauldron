@@ -15,9 +15,8 @@ defmodule Foo do
   end
 end
 
-# open the cauldron on port 8080, you can have multiple listeners using the
-# same module
-Cauldron.open Foo, listen: [[port: 8080]]
+# open the cauldron on port 8080
+Cauldron.start Foo, port: 8080
 ```
 
 Why?
@@ -30,14 +29,8 @@ Speed
 Right now cauldron is faster than node.js and slower than cowboy, there' still
 space for speed improvements but it's not a high priority right now.
 
-The slowness in comparison to cowboy comes from cauldron design, at least in
-the HTTP part.
+The slowness comes from protocol dispatching in Elixir, protocol consolidation
+will fix that.
 
-Right now when a connection comes in, you have 3 processes spawn to handle it
-plus a process per HTTP request, the design is made to keep it simple and to
-scale well with pipelined request, this means that it's slower when you have
-a single request per connection.
-
-I still have to figure out a decent way to reduce the number of processes when
-there's just a single request coming in while maintining the simplicity and the
-API semantics.
+Also we don't use an hand-crafted decoder like cowboy does but use
+`:erlang.decode_packet`.
