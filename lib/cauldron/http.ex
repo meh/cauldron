@@ -96,9 +96,6 @@ defmodule Cauldron.HTTP do
       destructure [host, port], String.split(authority, ":", global: false)
 
       port = binary_to_integer(port || "80")
-    else
-      authority = "localhost:#{connection.listener.port}"
-      host      = "localhost"
     end
 
     if auth = Dict.get(headers, "Authorization") do
