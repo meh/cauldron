@@ -97,7 +97,7 @@ defmodule Cauldron.HTTP do
 
       port = binary_to_integer(port || "80")
     else
-      authority = "localhost:#{connection.port}"
+      authority = "localhost:#{connection.listener.port}"
       host      = "localhost"
     end
 
