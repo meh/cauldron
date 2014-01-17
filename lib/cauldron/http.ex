@@ -172,7 +172,7 @@ defmodule Cauldron.HTTP do
           body = read_body(connection, headers)
         end
 
-        pid <- { ref, body }
+        pid |> send { ref, body }
 
         handler(request, headers, body)
 
