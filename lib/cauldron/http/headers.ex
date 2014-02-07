@@ -28,7 +28,7 @@ defmodule Cauldron.HTTP.Headers do
     List.keymember?(list, Utils.downcase(key), 0)
   end
 
-  def get(self, key, default // nil)
+  def get(self, key, default \\ nil)
 
   def get(self, key, default) when key |> is_atom do
     get(self, key |> to_string, default)

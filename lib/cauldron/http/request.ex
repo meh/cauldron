@@ -43,7 +43,7 @@ defrecord Cauldron.HTTP.Request, connection: nil,
   `chunk_size` option of the listener.
   """
   @spec read(t) :: binary
-  def read(Req[handler: handler] = self, size // 4096) do
+  def read(Req[handler: handler] = self, size \\ 4096) do
     :gen_server.call handler, { self, :read, :chunk, size }
   end
 
