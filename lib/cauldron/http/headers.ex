@@ -44,8 +44,8 @@ defmodule Cauldron.HTTP.Headers do
             binary_to_integer(value)
 
           "accept" ->
-            String.split(value, %r/\s*,\s*/) |> Enum.map fn part ->
-              case part |> String.split(%r/\s*;\s*/) do
+            String.split(value, ~r/\s*,\s*/) |> Enum.map fn part ->
+              case part |> String.split(~r/\s*;\s*/) do
                 [type] ->
                   { type, 1.0 }
 

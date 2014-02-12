@@ -4,7 +4,7 @@ defmodule Cauldron.Mixfile do
   def project do
     [ app: :cauldron,
       version: "0.0.1",
-      elixir: "~> 0.12.3",
+      elixir: "~> 0.12.4",
       deps: deps ]
   end
 
