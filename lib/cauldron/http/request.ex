@@ -30,6 +30,18 @@ defmodule Cauldron.HTTP.Request do
       self.headers["Content-Length"] != nil or self.headers["Transfer-Encoding"] == "chunked"
     end
 
+    def method(self) do
+      self.method
+    end
+
+    def uri(self) do
+      self.uri
+    end
+
+    def headers(self) do
+      self.headers
+    end
+
     def read(self, size \\ 4096) do
       :gen_server.call self.handler, { self, :read, :chunk, size }
     end

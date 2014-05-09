@@ -14,6 +14,24 @@ defprotocol Cauldron.Request do
   def has_body?(self)
 
   @doc """
+  Get the method used by the request.
+  """
+  @spec method(t) :: String.t
+  def method(self)
+
+  @doc """
+  Get the URI used by the request.
+  """
+  @spec uri(t) :: URI.t
+  def uri(self)
+
+  @doc """
+  Get the headers used by the request.
+  """
+  @spec headers(t) :: Cauldron.Headers.t
+  def headers(self)
+
+  @doc """
   Read a chunk from the request body, chunks are split respecting the
   `chunk_size` option of the listener.
   """
