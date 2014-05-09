@@ -22,7 +22,7 @@ defmodule Cauldron do
   use Reagent.Behaviour
 
   def start(connection) do
-    callback = connection.listener.env
+    callback = connection.listener |> Reagent.Listener.env
 
     case connection |> Reagent.Connection.negotiated_protocol || "http/?" do
       "http/" <> version ->

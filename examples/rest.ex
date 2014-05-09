@@ -1,4 +1,6 @@
 defmodule REST do
+  alias Cauldron.Request
+
   def handle(method, uri, request) do
     try do
       case method do
@@ -14,44 +16,44 @@ defmodule REST do
     end
   end
 
-  def get(URI.Info[path: "/file"], request) do
-    request.reply("mix.exs")
+  def get(%URI{path: "/file"}, request) do
+    request |> Request.reply("mix.exs")
   end
 
-  def get(URI.Info[path: "/io"], request) do
-    request.reply(200, File.open!("mix.exs"))
+  def get(%URI{path: "/io"}, request) do
+    request |> Request.reply(200, File.open!("mix.exs"))
   end
 
-  def get(URI.Info[path: "/generator"], request) do
-    request.reply 200, true, fn
+  def get(%URI{path: "/generator"}, request) do
+    request |> Request.reply 200, true, fn
       true  -> { "lol", false }
       false -> :eof
     end
   end
 
-  def get(URI.Info[path: "/yawnt"], request) do
-    request.reply(200, "yawnt e' scemo\n")
+  def get(%URI{path: "/yawnt"}, request) do
+    request |> Request.reply(200, "yawnt e' scemo\n")
   end
 
-  def get(URI.Info[path: "/yawnt/" <> what], request) do
-    request.reply(200, "yawnt e' #{what}\n")
+  def get(%URI{path: "/yawnt/" <> what}, request) do
+    request |> Request.reply(200, "yawnt e' #{what}\n")
   end
 
-  def post(URI.Info[path: "/yawnt"], request) do
-    case request.body do
+  def get(%URI{path: "/chuzz"}, request) do
+    request |> Request.reply(200, "chuzz idla\n")
+  end
+
+  def post(%URI{path: "/yawnt"}, request) do
+    case request |> Request.body do
       "piace" ->
-        request.reply(200, "dire cose sceme")
+        request |> Request.reply(200, "dire cose sceme")
 
       _ ->
-        request.reply(200, "a me lo chiedi?")
+        request |> Request.reply(200, "a me lo chiedi?")
     end
   end
 
-  def get(URI.Info[path: "/chuzz"], request) do
-    request.reply(200, "chuzz idla\n")
-  end
-
   def missing(_, _, request) do
-    request.reply(404)
+    request |> Request.reply(404)
   end
 end

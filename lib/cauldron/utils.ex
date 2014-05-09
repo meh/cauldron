@@ -9,7 +9,7 @@
 defmodule Cauldron.Utils do
   @spec downcase(String.t) :: String.t
   def downcase(string) do
-    do_downcase(string) |> iolist_to_binary
+    do_downcase(string) |> iodata_to_binary
   end
 
   defp do_downcase(<< char :: size(8), rest :: binary >>) when char in ?A .. ?Z do
@@ -26,7 +26,7 @@ defmodule Cauldron.Utils do
 
   @spec upcase(String.t) :: String.t
   def upcase(string) do
-    do_upcase(string) |> iolist_to_binary
+    do_upcase(string) |> iodata_to_binary
   end
 
   defp do_upcase(<< char :: size(8), rest :: binary >>) when char in ?a .. ?z do
