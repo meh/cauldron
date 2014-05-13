@@ -239,7 +239,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp read_chunks(connection) do
-    read_chunks([], connection) |> Enum.reverse |> iolist_to_binary
+    read_chunks([], connection) |> Enum.reverse |> iodata_to_binary
   end
 
   defp read_chunks(acc, connection) do
