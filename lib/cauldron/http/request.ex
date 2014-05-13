@@ -72,7 +72,6 @@ defmodule Cauldron.HTTP.Request do
 
     def reply(self, code, acc, fun) when fun |> is_function do
       self |> reply |> R.status(code) |> R.headers([]) |> R.stream(acc, fun)
-      reply(self).status(code).headers([]).stream(acc, fun)
     end
 
     def reply(self, code, headers, body) do
