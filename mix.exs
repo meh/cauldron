@@ -5,7 +5,15 @@ defmodule Cauldron.Mixfile do
     [ app: :cauldron,
       version: "0.1.0",
       elixir: "~> 0.13.2",
-      deps: deps ]
+      deps: deps,
+      package: package,
+      description: "Web server library written in Elixir" ]
+  end
+
+  defp package do
+    [ contributors: ["meh"],
+      license: "WTFPL",
+      links: [ { "GitHub", "https://github.com/meh/cauldron" } ] ]
   end
 
   def application do
