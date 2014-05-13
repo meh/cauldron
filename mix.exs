@@ -4,7 +4,7 @@ defmodule Cauldron.Mixfile do
   def project do
     [ app: :cauldron,
       version: "0.1.0",
-      elixir: "~> 0.13.2-dev",
+      elixir: "~> 0.13.2",
       deps: deps ]
   end
 
@@ -13,6 +13,6 @@ defmodule Cauldron.Mixfile do
   end
 
   defp deps do
-    [ { :reagent, github: "meh/reagent" } ]
+    [ { :reagent, "~> 0.1.1" } ]
   end
 end
