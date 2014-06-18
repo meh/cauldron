@@ -7,6 +7,8 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defprotocol Cauldron.Request do
+  alias HTTProt.Headers
+
   @doc """
   Check if the request has a body.
   """
@@ -28,7 +30,7 @@ defprotocol Cauldron.Request do
   @doc """
   Get the headers used by the request.
   """
-  @spec headers(t) :: Cauldron.Headers.t
+  @spec headers(t) :: Headers.t
   def headers(self)
 
   @doc """
@@ -75,7 +77,7 @@ defprotocol Cauldron.Request do
   Respond to the request with the given code, headers and body or with the
   given code and and generator function.
   """
-  @spec reply(t, integer, Cauldron.Headers.t | term, iolist | (term -> { iolist, term })) :: none
+  @spec reply(t, integer, Headers.t | term, iolist | (term -> { iolist, term })) :: none
   def reply(self, code, acc_or_headers, fun_or_body)
 
   @doc """

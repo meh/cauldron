@@ -7,8 +7,6 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defmodule Cauldron.HTTP.Request do
-  alias Cauldron.Utils, as: U
-
   defstruct [:connection, :handler, :id, :method, :uri, :version, :headers]
 
   @doc """
@@ -17,7 +15,7 @@ defmodule Cauldron.HTTP.Request do
   @spec last?(t) :: boolean
   def last?(self) do
     if connection = self.headers["Connection"] do
-      U.downcase(connection) != "keep-alive"
+      String.downcase(connection) != "keep-alive"
     else
       true
     end
