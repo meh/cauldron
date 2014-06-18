@@ -13,13 +13,12 @@ defmodule Cauldron.HTTP do
       callback = &callback.handle/3
     end
 
-    { :ok, Process.spawn(__MODULE__, :init, [version, connection, callback]) }
+    { :ok, Kernel.spawn(__MODULE__, :init, [version, connection, callback]) }
   end
 
-  alias Cauldron.Utils, as: U
   alias Reagent.Connection, as: C
 
-  alias Cauldron.Headers
+  alias HTTProt.Headers
   alias Cauldron.HTTP.Request
   alias Cauldron.HTTP.Response
 
@@ -37,14 +36,14 @@ defmodule Cauldron.HTTP do
 
     request = %Request{
       connection: connection,
-      handler:    Process.self,
+      handler:    Kernel.self,
       id:         0,
       method:     method,
       uri:        uri,
       version:    version,
       headers:    headers }
 
-    Process.spawn_link fn ->
+    Kernel.spawn_link fn ->
       callback.(method, uri, request)
     end
 
@@ -60,7 +59,7 @@ defmodule Cauldron.HTTP do
 
     case connection |> Socket.Stream.recv! do
       { :http_request, method, path, version } ->
-        { method |> to_string |> U.upcase, path, version }
+        { method |> to_string |> String.upcase, path, version }
 
       nil ->
         exit :closed
@@ -91,7 +90,7 @@ defmodule Cauldron.HTTP do
     if authority = Dict.get(headers, "Host") do
       destructure [host, port], String.split(authority, ":", parts: 2)
 
-      port = binary_to_integer(port || "80")
+      port = String.to_integer(port || "80")
     end
 
     if auth = Dict.get(headers, "Authorization") do
@@ -132,7 +131,7 @@ defmodule Cauldron.HTTP do
     end
 
     %URI{
-      scheme:    atom_to_binary(scheme),
+      scheme:    Atom.to_binary(scheme),
       authority: "#{host}:#{port}",
       host:      host,
       port:      port,
@@ -144,7 +143,7 @@ defmodule Cauldron.HTTP do
   defp create_uri({ :scheme, host, port }, _connection, _headers) do
     %URI{
       host: host,
-      port: binary_to_integer(port) }
+      port: String.to_integer(port) }
   end
 
   defp create_uri(path, _connection, _headers) when path |> is_binary do
@@ -185,7 +184,7 @@ defmodule Cauldron.HTTP do
 
       { :"$gen_cast", { %Response{}, :body, body } } ->
         headers = keep_alive(request, headers)
-        headers = headers |> Dict.put("Content-Length", iodata_length(body))
+        headers = headers |> Dict.put("Content-Length", IO.iodata_length(body))
 
         write_headers(connection, headers)
         write_body(connection, body)
@@ -239,7 +238,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp read_chunks(connection) do
-    read_chunks([], connection) |> Enum.reverse |> iodata_to_binary
+    read_chunks([], connection) |> Enum.reverse |> IO.iodata_to_binary
   end
 
   defp read_chunks(acc, connection) do
@@ -255,7 +254,7 @@ defmodule Cauldron.HTTP do
   defp read_chunk(connection) do
     connection |> Socket.packet! :line
 
-    case connection |> Socket.Stream.recv! |> String.rstrip |> binary_to_integer(16) do
+    case connection |> Socket.Stream.recv! |> String.rstrip |> String.to_integer(16) do
       0 ->
         connection |> Socket.Stream.recv!
         nil
@@ -272,7 +271,7 @@ defmodule Cauldron.HTTP do
   defp write_status(connection, { major, minor }, code, text) do
     connection |> Socket.Stream.send! [
       "HTTP/", "#{major}.#{minor}", " ",
-      integer_to_binary(code), " ",
+      Integer.to_string(code), " ",
       text, "\r\n"
     ]
   end
@@ -299,7 +298,7 @@ defmodule Cauldron.HTTP do
 
   defp write_chunk(connection, chunk) do
     connection |> Socket.Stream.send! [
-      :io_lib.format("~.16b", [iodata_length(chunk)]), "\r\n",
+      :io_lib.format("~.16b", [IO.iodata_length(chunk)]), "\r\n",
       chunk, "\r\n"
     ]
   end
