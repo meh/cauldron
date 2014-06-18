@@ -9,9 +9,12 @@
 defmodule Cauldron.HTTP.Response do
   defstruct [:request]
 
+  alias HTTProt.Headers
+  alias HTTProt.Status
+
   defimpl Cauldron.Response do
     def status(self, code) when code |> is_integer do
-      status(self, { code, Cauldron.Status.to_string(code) })
+      status(self, { code, Status.to_string(code) })
     end
 
     def status(self, { code, text }) when code |> is_integer and text |> is_binary do
@@ -21,7 +24,7 @@ defmodule Cauldron.HTTP.Response do
     end
 
     def headers(self, headers) when headers |> is_list do
-      headers(self, Enum.into(headers, Cauldron.Headers.new))
+      headers(self, Enum.into(headers, Headers.new))
     end
 
     def headers(self, headers) do

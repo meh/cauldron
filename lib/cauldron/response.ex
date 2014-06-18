@@ -7,6 +7,8 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defprotocol Cauldron.Response do
+  alias HTTProt.Headers
+
   @doc """
   Send the HTTP status.
   """
