@@ -7,6 +7,15 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defmodule Cauldron do
+  defmacro __using__(_opts) do
+    quote do
+      alias HTTProt.Headers
+      alias HTTProt.Status
+      alias Cauldron.Request
+      alias Cauldron.Response
+    end
+  end
+
   @options backlog: 1024,
            buffer: 16 * 1024,
            advertised_protocols: ["spdy/2", "spdy/3", "http/1.0", "http/1.1"]
