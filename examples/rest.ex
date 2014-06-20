@@ -1,5 +1,5 @@
 defmodule REST do
-  alias Cauldron.Request
+  use Cauldron
 
   def handle(method, uri, request) do
     try do
