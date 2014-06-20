@@ -16,8 +16,7 @@ defmodule Cauldron.HTTP do
     { :ok, Kernel.spawn(__MODULE__, :init, [version, connection, callback]) }
   end
 
-  alias Reagent.Connection, as: C
-
+  alias Reagent.Connection
   alias HTTProt.Headers
   alias Cauldron.HTTP.Request
   alias Cauldron.HTTP.Response
@@ -104,7 +103,7 @@ defmodule Cauldron.HTTP do
     end
 
     %URI{
-      scheme:    if(connection |> C.secure?, do: "https", else: "http"),
+      scheme:    if(connection |> Connection.secure?, do: "https", else: "http"),
       authority: authority,
       host:      host,
       port:      port,
