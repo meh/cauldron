@@ -1,4 +1,4 @@
-%{"exts": {:package, "0.1.2"},
-  "httprot": {:package, "0.1.1"},
-  "reagent": {:package, "0.1.2"},
-  "socket": {:package, "0.2.4"}}
+%{"exts": {:package, "0.2.0"},
+  "httprot": {:package, "0.1.3"},
+  "reagent": {:package, "0.1.3"},
+  "socket": {:package, "0.2.6"}}
