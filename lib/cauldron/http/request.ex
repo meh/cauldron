@@ -8,6 +8,7 @@
 
 defmodule Cauldron.HTTP.Request do
   defstruct [:connection, :handler, :id, :method, :uri, :version, :headers]
+  @opaque t :: %__MODULE__{}
 
   @doc """
   Check if the request is the last in the pipeline.
