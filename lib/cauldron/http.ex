@@ -18,6 +18,7 @@ defmodule Cauldron.HTTP do
 
   alias Reagent.Connection
   alias HTTProt.Headers
+  alias Cauldron.Request, as: R
   alias Cauldron.HTTP.Request
   alias Cauldron.HTTP.Response
 
@@ -160,7 +161,7 @@ defmodule Cauldron.HTTP do
 
       { :EXIT, _pid, reason } ->
         :error_logger.error_report(reason)
-        request.reply(500)
+        request |> R.reply(500)
 
         handler(request, headers, body)
 
