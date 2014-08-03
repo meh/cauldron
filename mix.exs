@@ -3,8 +3,8 @@ defmodule Cauldron.Mixfile do
 
   def project do
     [ app: :cauldron,
-      version: "0.1.3",
-      elixir: "~> 0.14.3",
+      version: "0.1.4",
+      elixir: "~> 0.15.0",
       deps: deps,
       package: package,
       description: "Web server library written in Elixir" ]
@@ -13,7 +13,7 @@ defmodule Cauldron.Mixfile do
   defp package do
     [ contributors: ["meh"],
       licenses: ["WTFPL"],
-      links: [ { "GitHub", "https://github.com/meh/cauldron" } ] ]
+      links: %{"GitHub" => "https://github.com/meh/cauldron"} ]
   end
 
   def application do
