@@ -9,9 +9,11 @@ Examples
 
 ```elixir
 defmodule Foo do
+  use Cauldron
+
   # respond to a GET / request with "Hello, World!"
-  def handle("GET", URI.Info[path: "/"], req) do
-    req.reply(200, "Hello, World!")
+  def handle("GET", %URI{path: "/"}, req) do
+    req |> Request.reply(200, "Hello, World!")
   end
 end
 
