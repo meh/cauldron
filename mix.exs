@@ -10,7 +10,7 @@ defmodule Cauldron.Mixfile do
   end
 
   defp package do
-    [ contributors: ["meh"],
+    [ maintainers: ["meh"],
       licenses: ["WTFPL"],
       links: %{"GitHub" => "https://github.com/meh/cauldron"} ]
   end
