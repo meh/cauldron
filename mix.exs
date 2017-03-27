@@ -22,6 +22,7 @@ defmodule Cauldron.Mixfile do
   defp deps do
     [ { :reagent,        "~> 0.1" },
       { :httprot,        "~> 0.1" },
-      { :datastructures, "~> 0.2" } ]
+      { :datastructures, "~> 0.2" },
+      { :ex_doc,         "~> 0.14", only: [:dev] } ]
   end
 end
