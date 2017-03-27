@@ -3,7 +3,7 @@ defmodule Cauldron.Mixfile do
 
   def project do
     [ app: :cauldron,
-      version: "0.1.6",
+      version: "0.1.7",
       deps: deps(),
       package: package(),
       description: "Web server library written in Elixir" ]
