@@ -24,7 +24,7 @@ defmodule Cauldron.HTTP.Response do
     end
 
     def headers(self, headers) when headers |> is_list do
-      headers(self, Enum.into(headers, Headers.new))
+      headers(self, Headers.parse(headers))
     end
 
     def headers(self, headers) do

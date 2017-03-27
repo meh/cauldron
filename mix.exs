@@ -3,10 +3,9 @@ defmodule Cauldron.Mixfile do
 
   def project do
     [ app: :cauldron,
-      version: "0.1.5",
-      elixir: "~> 1.0.0-rc1",
-      deps: deps,
-      package: package,
+      version: "0.1.6",
+      deps: deps(),
+      package: package(),
       description: "Web server library written in Elixir" ]
   end
 
@@ -21,7 +20,8 @@ defmodule Cauldron.Mixfile do
   end
 
   defp deps do
-    [ { :reagent, "~> 0.1.3" },
-      { :httprot, "~> 0.1.3" } ]
+    [ { :reagent,        "~> 0.1" },
+      { :httprot,        "~> 0.1" },
+      { :datastructures, "~> 0.2" } ]
   end
 end

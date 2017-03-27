@@ -16,29 +16,28 @@ defmodule Cauldron do
     end
   end
 
-  @options backlog: 1024,
-           buffer: 16 * 1024,
-           advertised_protocols: ["spdy/2", "spdy/3", "http/1.0", "http/1.1"]
+  use Data
 
-  def start(callback, listener) do
-    Reagent.start __MODULE__, Keyword.merge(listener, env: callback, options: @options)
+  @options backlog: 1024,
+           recv:    [buffer: 16 * 1024]
+
+  def start(name, listener) do
+    Reagent.start __MODULE__, Keyword.merge(listener, env: [callback: name], options: @options)
   end
 
-  def start_link(callback, listener) do
-    Reagent.start_link __MODULE__, Keyword.merge(listener, env: callback, options: @options)
+  def start_link(name, listener) do
+    Reagent.start_link __MODULE__, Keyword.merge(listener, env: [callback: name], options: @options)
   end
 
   use Reagent.Behaviour
 
   def start(connection) do
-    callback = connection.listener |> Reagent.Listener.env
-
-    case connection |> Reagent.Connection.negotiated_protocol || "http/?" do
+    case connection |> Reagent.Connection.negotiated_protocol || "http/1.1" do
       "http/" <> version ->
-        Cauldron.HTTP.start(version, connection, callback)
+        Cauldron.HTTP.start(version, connection, Dict.get(connection.listener.env, :callback))
 
-      "spdy/" <> version ->
-        Cauldron.SPDY.start(version, connection, callback)
+      _ ->
+        connection |> Socket.close
     end
   end
 end

@@ -25,10 +25,10 @@ defmodule REST do
   end
 
   def get(%URI{path: "/generator"}, request) do
-    request |> Request.reply 200, true, fn
+    request |> Request.reply(200, true, fn
       true  -> { "lol", false }
       false -> :eof
-    end
+    end)
   end
 
   def get(%URI{path: "/yawnt"}, request) do

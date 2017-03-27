@@ -1,4 +1,5 @@
-%{"exts": {:package, "0.2.2"},
-  "httprot": {:package, "0.1.5"},
-  "reagent": {:package, "0.1.5"},
-  "socket": {:package, "0.2.8"}}
+%{"datastructures": {:hex, :datastructures, "0.2.8", "cd9f53bed18f1d9526689a9559676c682b5a3ba230c1e3de187182f4ff86899c", [:mix], []},
+  "exts": {:hex, :exts, "0.3.4", "ec2af096ab4494c087a9615fffe9d5ba8a0fa0ccc465b340ee522ed7aff79078", [:mix], [{:datastructures, "~> 0.2", [hex: :datastructures, optional: false]}]},
+  "httprot": {:hex, :httprot, "0.1.9", "2a159b7f9696b7e66495ce7010be33cd232d10b200249d4e626857036ac44a95", [:mix], [{:datastructures, "~> 0.2", [hex: :datastructures, optional: false]}, {:socket, "~> 0.3", [hex: :socket, optional: false]}]},
+  "reagent": {:hex, :reagent, "0.1.14", "f6eaa35266091a41c93ae18b510472fa7c931c1f67a030d213ab0206ace843e1", [:mix], [{:exts, "~> 0.3", [hex: :exts, optional: false]}, {:socket, "~> 0.3", [hex: :socket, optional: false]}]},
+  "socket": {:hex, :socket, "0.3.10", "a615c308e681de78595ec98189a27aa2ef9b0fe8ce400c560d8185b366f13eae", [:mix], []}}

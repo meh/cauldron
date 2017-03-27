@@ -9,8 +9,10 @@
 defmodule Cauldron.HTTP do
   @doc false
   def start(version, connection, callback) do
-    if callback |> is_atom do
-      callback = &callback.handle/3
+    callback = if callback |> is_atom do
+      &callback.handle/3
+    else
+      callback
     end
 
     { :ok, Kernel.spawn(__MODULE__, :init, [version, connection, callback]) }
@@ -21,6 +23,8 @@ defmodule Cauldron.HTTP do
   alias Cauldron.Request, as: R
   alias Cauldron.HTTP.Request
   alias Cauldron.HTTP.Response
+
+  use Data
 
   def init(version, connection, callback) do
     Process.flag :trap_exit, true
@@ -55,7 +59,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp request(connection) do
-    connection |> Socket.packet! :http_bin
+    connection |> Socket.packet!(:http_bin)
 
     case connection |> Socket.Stream.recv! do
       { :http_request, method, path, version } ->
@@ -67,7 +71,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp headers(connection) do
-    headers([], connection) |> Enum.reverse |> Enum.into(Headers.new)
+    headers([], connection) |> Seq.reverse |> Headers.parse
   end
 
   defp headers(acc, connection) do
@@ -87,19 +91,18 @@ defmodule Cauldron.HTTP do
     destructure [path, fragment], String.split(path, "#", parts: 2)
     destructure [path, query], String.split(path, "?", parts: 2)
 
-    if authority = Dict.get(headers, "Host") do
+    { host, port } = if authority = Dict.get(headers, "Host") do
       destructure [host, port], String.split(authority, ":", parts: 2)
-
-      port = String.to_integer(port || "80")
+      { host, String.to_integer(port || "80") }
     end
 
-    if auth = Dict.get(headers, "Authorization") do
+    userinfo = if auth = Dict.get(headers, "Authorization") do
       case auth do
         "Basic " <> rest ->
-          userinfo = :base64.decode(rest)
+          :base64.decode(rest)
 
         _ ->
-          userinfo = nil
+          nil
       end
     end
 
@@ -131,7 +134,7 @@ defmodule Cauldron.HTTP do
     end
 
     %URI{
-      scheme:    Atom.to_binary(scheme),
+      scheme:    Atom.to_string(scheme),
       authority: "#{host}:#{port}",
       host:      host,
       port:      port,
@@ -166,11 +169,13 @@ defmodule Cauldron.HTTP do
         handler(request, headers, body)
 
       { :"$gen_call", { pid, ref }, { %Request{headers: headers}, :read, :all } } ->
-        unless body do
-          body = read_body(connection, headers)
+        body = unless body do
+          read_body(connection, headers)
+        else
+          body
         end
 
-        pid |> send { ref, body }
+        pid |> send({ ref, body })
 
         handler(request, headers, body)
 
@@ -201,7 +206,9 @@ defmodule Cauldron.HTTP do
           headers = keep_alive(request, headers)
           headers = headers |> Dict.put("Transfer-Encoding", "chunked")
 
-          write_headers(connection, headers)
+          write_headers(connection,
+            keep_alive(request, headers) |>
+            Dict.put("Transfer-Encoding", "chunked"))
         end
 
         write_chunk(connection, chunk)
@@ -226,7 +233,7 @@ defmodule Cauldron.HTTP do
   defp read_body(connection, headers) do
     cond do
       length = headers |> Dict.get("Content-Length") ->
-        connection |> Socket.packet! :raw
+        connection |> Socket.packet!(:raw)
         connection |> Socket.Stream.recv!(length)
 
       headers |> Dict.get("Transfer-Encoding") == "chunked" ->
@@ -252,7 +259,7 @@ defmodule Cauldron.HTTP do
   end
 
   defp read_chunk(connection) do
-    connection |> Socket.packet! :line
+    connection |> Socket.packet!(:line)
 
     case connection |> Socket.Stream.recv! |> String.rstrip |> String.to_integer(16) do
       0 ->
@@ -260,32 +267,32 @@ defmodule Cauldron.HTTP do
         nil
 
       size ->
-        connection |> Socket.packet! :raw
+        connection |> Socket.packet!(:raw)
         res = connection |> Socket.Stream.recv!(size)
-        connection |> Socket.packet! :line
+        connection |> Socket.packet!(:line)
         connection |> Socket.Stream.recv!
         res
     end
   end
 
   defp write_status(connection, { major, minor }, code, text) do
-    connection |> Socket.Stream.send! [
+    connection |> Socket.Stream.send!([
       "HTTP/", "#{major}.#{minor}", " ",
       Integer.to_string(code), " ",
       text, "\r\n"
-    ]
+    ])
   end
 
   defp write_headers(connection, headers) do
     Enum.each headers, fn { name, value } ->
-      connection |> Socket.Stream.send! [name, ": ", to_string(value), "\r\n"]
+      connection |> Socket.Stream.send!([name, ": ", to_string(value), "\r\n"])
     end
 
-    connection |> Socket.Stream.send! "\r\n"
+    connection |> Socket.Stream.send!("\r\n")
   end
 
   defp write_body(connection, body) do
-    connection |> Socket.Stream.send! body
+    connection |> Socket.Stream.send!(body)
   end
 
   defp write_file(connection, path) do
@@ -293,13 +300,13 @@ defmodule Cauldron.HTTP do
   end
 
   defp write_chunk(connection, nil) do
-    connection |> Socket.Stream.send! "0\r\n\r\n"
+    connection |> Socket.Stream.send!("0\r\n\r\n")
   end
 
   defp write_chunk(connection, chunk) do
-    connection |> Socket.Stream.send! [
+    connection |> Socket.Stream.send!([
       :io_lib.format("~.16b", [IO.iodata_length(chunk)]), "\r\n",
       chunk, "\r\n"
-    ]
+    ])
   end
 end
