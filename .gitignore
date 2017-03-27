@@ -1,5 +1,6 @@
 /ebin
 /deps
+/doc
 _build
 erl_crash.dump
 fprof.trace
