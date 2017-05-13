@@ -3,7 +3,7 @@ defmodule Cauldron.Mixfile do
 
   def project do
     [ app: :cauldron,
-      version: "0.1.7",
+      version: "0.1.8",
       deps: deps(),
       package: package(),
       description: "Web server library written in Elixir" ]
@@ -16,7 +16,7 @@ defmodule Cauldron.Mixfile do
   end
 
   def application do
-    [ applications: [:reagent, :httprot] ]
+    []
   end
 
   defp deps do
