@@ -100,6 +100,8 @@ defmodule Cauldron.HTTP do
     { host, port } = if authority = Dict.get(headers, "Host") do
       destructure [host, port], String.split(authority, ":", parts: 2)
       { host, String.to_integer(port || "80") }
+    else
+      { nil, nil }
     end
 
     userinfo = if auth = Dict.get(headers, "Authorization") do
